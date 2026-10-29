@@ -45,34 +45,54 @@
     color: #fff; background: var(--brand-primary-deep, #123f42); transform: none;
 }
 .kpi-tile {
-    display: flex; align-items: center; gap: 12px; padding: 14px;
-    border: 1px solid #e5eef0; border-radius: 10px; background: #fff; height: 100%;
+    display: flex; align-items: flex-start; gap: 12px; padding: 16px;
+    border: 1px solid #e3e8ea; border-radius: 12px; background: #fff; height: 100%;
+    transition: transform 200ms ease, box-shadow 200ms ease;
 }
-.kpi-tile .kpi-icon {
-    width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center;
-    justify-content: center; flex-shrink: 0;
-    background: var(--brand-primary-bg, #e6f5f5);
-    color: #fff;
-    border: 1px solid transparent;
+.kpi-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(26, 88, 94, 0.08);
 }
-.kpi-tile .kpi-icon i {
-    color: inherit;
-    font-size: 1.25rem;
-    line-height: 1;
-    transform: scale(0.92);
+.kpi-tile .kpi-label { font-size: 12.5px; color: #55606a; display: block; }
+.kpi-tile .kpi-value {
+    font-size: 1.6rem; font-weight: 650; color: #1f2a2e; line-height: 1.15; margin: 2px 0;
 }
-.kpi-tile .kpi-label { font-size: 12px; color: #6b7280; display: block; }
-.kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: var(--brand-primary, #1a585e); line-height: 1.1; }
+.kpi-tile .kpi-hint { font-size: 11.5px; color: #55606a; line-height: 1.4; margin: 0; }
 .next-action {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
-    text-decoration: none; color: inherit; background: #f8fafb;
-    transition: border-color .2s ease, background .2s ease;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px; border: 1px solid #e3e8ea; border-radius: 10px;
+    text-decoration: none; color: inherit; background: #fff;
+    margin-bottom: 0;
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
-.next-action:hover { border-color: #cbd5e1; background: rgba(15, 23, 42, 0.04); color: inherit; }
-.next-action .na-title { font-weight: 600; font-size: 14px; }
-.next-action .na-desc { font-size: 12px; color: #6b7280; margin: 0; }
+.next-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    border-color: #c9d9d9;
+    color: inherit;
+}
+.next-action:active { transform: scale(0.97); }
+.next-action .na-ic {
+    width: 38px; height: 38px; border-radius: 10px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brand-primary-bg, #eef6f6);
+    color: var(--brand-primary, #1a585e);
+}
+.next-action .na-ic svg {
+    width: 18px; height: 18px;
+    stroke: currentColor; fill: none; stroke-width: 1.75;
+    stroke-linecap: round; stroke-linejoin: round;
+}
+.next-action .na-body { min-width: 0; flex: 1 1 auto; }
+.next-action .na-title { font-weight: 600; font-size: 14px; color: #1f2a2e; }
+.next-action .na-desc { font-size: 12px; color: #55606a; margin: 2px 0 0; line-height: 1.45; }
+.next-action .na-arr { color: var(--brand-primary, #1a585e); font-size: 18px; line-height: 1; flex: none; }
 .next-action.next-action-quiet { background: transparent; border-style: dashed; }
+.dash-next-actions { display: flex; flex-direction: column; gap: 12px; margin-bottom: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+    .kpi-tile, .next-action { transition: none !important; }
+    .kpi-tile:hover, .next-action:hover, .next-action:active { transform: none !important; box-shadow: none !important; }
+}
 .order-status {
     display: inline-flex;
     align-items: center;
@@ -256,7 +276,7 @@
 }
 .recent-order-row { cursor: pointer; text-decoration: none; color: inherit; }
 .recent-order-row:hover { background: rgba(255,255,255,0.45); }
-.kpi-tile .kpi-icon.is-muted { background: #e2e8f0 !important; color: #64748b !important; }
+.recent-order-stepper { max-width: 320px; }
 </style>
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
@@ -393,43 +413,46 @@
     </div>
 
     <!-- KPIs -->
+    @php
+        $kpiTotal = (int) ($stats['total'] ?? 0);
+        $kpiCompleted = (int) ($stats['completed'] ?? 0);
+        $kpiInProgress = (int) ($stats['in_progress'] ?? 0);
+        $kpiCancelled = (int) ($stats['cancelled'] ?? 0);
+    @endphp
     <div class="row g-3 mb-4 px-1 pt-1">
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#3faeb2;color:#fff;"><i class="fa-solid fa-box-open" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">Total orders</span>
-                    <div class="kpi-value">{{ $stats['total'] }}</div>
+                    <div class="kpi-value" data-count-to="{{ $kpiTotal }}">{{ $kpiTotal }}</div>
+                    <p class="kpi-hint">{{ $kpiTotal === 0 ? 'Your first order shows here' : 'All orders you\'ve placed' }}</p>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#198754;color:#fff;"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">Completed</span>
-                    <div class="kpi-value">{{ $stats['completed'] }}</div>
+                    <div class="kpi-value" data-count-to="{{ $kpiCompleted }}">{{ $kpiCompleted }}</div>
+                    <p class="kpi-hint">{{ $kpiCompleted === 0 ? 'Approved placements will show here' : 'Approved and finished' }}</p>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#d97706;color:#fff;"><i class="fa-solid fa-clock" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">In progress</span>
-                    <div class="kpi-value">{{ $stats['in_progress'] }}</div>
+                    <div class="kpi-value" data-count-to="{{ $kpiInProgress }}">{{ $kpiInProgress }}</div>
+                    <p class="kpi-hint">{{ $kpiInProgress === 0 ? 'Your first order shows here' : 'Publisher is working on these' }}</p>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon {{ ((int) ($stats['cancelled'] ?? 0) > 0) ? '' : 'is-muted' }}"
-                     style="background:{{ ((int) ($stats['cancelled'] ?? 0) > 0) ? '#dc3545' : '#e2e8f0' }};color:{{ ((int) ($stats['cancelled'] ?? 0) > 0) ? '#fff' : '#64748b' }};">
-                    <i class="fa-solid fa-xmark-circle" aria-hidden="true"></i>
-                </div>
                 <div>
                     <span class="kpi-label">Cancelled</span>
-                    <div class="kpi-value">{{ $stats['cancelled'] }}</div>
+                    <div class="kpi-value" data-count-to="{{ $kpiCancelled }}">{{ $kpiCancelled }}</div>
+                    <p class="kpi-hint">{{ $kpiCancelled === 0 ? 'Nothing to resolve' : 'Orders you cancelled' }}</p>
                 </div>
             </div>
         </div>
@@ -448,11 +471,12 @@
                         $needSite = $needItem->site_name ?? ($needItem->site_url ?? 'Placement');
                     @endphp
                     <a href="{{ route('advertiser.orders', ['status' => 'needs_action']) }}" class="next-action border-warning">
-                        <div>
+                        <span class="na-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg></span>
+                        <div class="na-body">
                             <div class="na-title">{{ $needOrder->order_number }} · {{ $needSite }}</div>
                             <p class="na-desc mb-0">{{ $needOrder->status_label }} — {{ $needOrder->next_action }}</p>
                         </div>
-                        <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                        <span class="na-arr" aria-hidden="true">›</span>
                     </a>
                 @endforeach
             </div>
@@ -464,43 +488,62 @@
         <div class="col-lg-4">
             <div class="dash-panel h-100">
                 <h5 class="mb-3">Next actions</h5>
-                <div class="d-flex flex-column gap-2 mb-3">
+                @php
+                    $naIcon = [
+                        'search' => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+                        'upload' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/><path d="M5 19h14"/></svg>',
+                        'file' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>',
+                        'guide' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>',
+                        'review' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+                        'pay' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+                        'calendar' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>',
+                        'wallet' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4"/><circle cx="16" cy="14" r="1.5"/></svg>',
+                        'chart' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>',
+                        'alert' => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>',
+                    ];
+                @endphp
+                <div class="dash-next-actions">
                     @if($needsAction > 0)
                         <a href="{{ route('advertiser.orders', ['status' => 'needs_action']) }}" class="next-action border-warning">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['alert'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Orders need attention</div>
                                 <p class="na-desc">{{ $needsAction }} {{ $needsAction === 1 ? 'order needs' : 'orders need' }} a revised article or live-URL review</p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                         <a href="{{ $browseCatalogUrl }}" class="next-action next-action-quiet">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['search'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Browse catalog</div>
                                 <p class="na-desc">Find more publishers when you are ready</p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                     @else
                         @if($awaitingPayment > 0)
                             <a href="{{ route('advertiser.orders', ['status' => 'awaiting_payment']) }}" class="next-action">
-                                <div>
+                                <span class="na-ic" aria-hidden="true">{!! $naIcon['pay'] !!}</span>
+                                <div class="na-body">
                                     <div class="na-title">Complete payment</div>
                                     <p class="na-desc">{{ $awaitingPayment }} awaiting payment</p>
                                 </div>
-                                <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                                <span class="na-arr" aria-hidden="true">›</span>
                             </a>
                         @endif
                         @if($upcomingScheduledCount > 0)
                             <a href="{{ route('advertiser.scheduled-orders', ['tab' => 'upcoming']) }}" class="next-action" id="dashUpcomingScheduledAction">
-                                <div>
+                                <span class="na-ic" aria-hidden="true">{!! $naIcon['calendar'] !!}</span>
+                                <div class="na-body">
                                     <div class="na-title">Upcoming scheduled</div>
                                     <p class="na-desc">{{ $upcomingScheduledCount }} {{ $upcomingScheduledCount === 1 ? 'publication' : 'publications' }} waiting — reschedule, publish now, or cancel</p>
                                 </div>
-                                <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                                <span class="na-arr" aria-hidden="true">›</span>
                             </a>
                         @endif
                         <a href="{{ $browseCatalogUrl }}" class="next-action">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['search'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Browse catalog</div>
                                 <p class="na-desc">
                                     @if($hasOrderableArticle)
@@ -510,61 +553,72 @@
                                     @endif
                                 </p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                         @if($hasOrderableArticle)
                             <a href="{{ route('advertiser.content-library', ['status' => 'approved', 'availability' => 'available']) }}" class="next-action" id="dashOrderableLibraryAction">
-                                <div>
+                                <span class="na-ic" aria-hidden="true">{!! $naIcon['file'] !!}</span>
+                                <div class="na-body">
                                     <div class="na-title">Content Library</div>
                                     <p class="na-desc">Review approved articles ready to place</p>
                                 </div>
-                                <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                                <span class="na-arr" aria-hidden="true">›</span>
                             </a>
                         @else
                             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="next-action" id="dashUploadLibraryAction">
-                                <div>
+                                <span class="na-ic" aria-hidden="true">{!! $naIcon['upload'] !!}</span>
+                                <div class="na-body">
                                     <div class="na-title">Upload an article</div>
                                     <p class="na-desc">Approve content in your library before checkout</p>
                                 </div>
-                                <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                                <span class="na-arr" aria-hidden="true">›</span>
                             </a>
                         @endif
                         <a href="{{ $guidedFlowUrl }}" class="next-action">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['guide'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Guided placement</div>
                                 <p class="na-desc">Optional walkthrough: market → publishers → content → pay</p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                         <a href="{{ route('advertiser.orders') }}" class="next-action">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['review'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Review orders</div>
-                                <p class="na-desc">{{ $stats['in_progress'] }} in progress right now</p>
+                                <p class="na-desc">
+                                    @if($needsAction > 0)
+                                        {{ $needsAction }} waiting for your review
+                                    @elseif($kpiInProgress > 0)
+                                        {{ $kpiInProgress }} in progress right now
+                                    @else
+                                        Track placements you’ve ordered
+                                    @endif
+                                </p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                         <a href="{{ route('advertiser.add-funds') }}" class="next-action">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['wallet'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Add funds</div>
                                 <p class="na-desc">
                                     @if(!empty($budgetStatus['low_balance']))
                                         Spendable is below your alert — top up to keep checkout ready
                                     @else
-                                        Spendable {{ format_money($wallet['spendable'] ?? 0) }}
+                                        Top up to keep checkout ready
                                     @endif
                                 </p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                         <a href="{{ route('advertiser.analytics') }}" class="next-action">
-                            <div>
+                            <span class="na-ic" aria-hidden="true">{!! $naIcon['chart'] !!}</span>
+                            <div class="na-body">
                                 <div class="na-title">Spending history</div>
-                                <p class="na-desc">
-                                    Net {{ format_money($spendSummary['net'] ?? 0) }}
-                                    · in progress {{ format_money($spendSummary['in_progress'] ?? 0) }}
-                                </p>
+                                <p class="na-desc">See completed and in-progress spend over time</p>
                             </div>
-                            <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                            <span class="na-arr" aria-hidden="true">›</span>
                         </a>
                     @endif
                 </div>
@@ -659,6 +713,7 @@
                                             $recentDisplayHost = $siteModel
                                                 ? $urlVisibility->hostFor(auth()->user(), $siteModel)
                                                 : null;
+                                            $lifecycleStepper = \App\Support\AdvertiserOrderStatus::lifecycleStepper($order, $firstItem);
                                         @endphp
                                         <tr class="recent-order-row" onclick="window.location='{{ $orderFocusUrl }}'">
                                             <td class="py-3">
@@ -680,6 +735,9 @@
                                                     <div class="small text-muted mt-1">+{{ $order->items->count() - 1 }} more site{{ $order->items->count() - 1 === 1 ? '' : 's' }}</div>
                                                 @endif
                                                 <div class="small text-muted mt-1">{{ $order->created_at?->format('M j, Y') }}</div>
+                                                <div class="recent-order-stepper" onclick="event.stopPropagation()">
+                                                    @include('partials.order-lifecycle-stepper', ['stepper' => $lifecycleStepper])
+                                                </div>
                                             </td>
                                             <td class="py-3">
                                                 <span class="order-status {{ $statusDotClass }}">
@@ -687,7 +745,7 @@
                                                     {{ $statusLabel }}
                                                 </span>
                                             </td>
-                                            <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
+                                            <td class="text-end py-3 fw-semibold" style="color:#1f2a2e;">
                                                 {{ format_money($order->total_amount) }}
                                             </td>
                                         </tr>
@@ -721,6 +779,43 @@
 
 @push('scripts')
 <script src="{{ asset('js/support-hours.js') }}?v={{ @filemtime(public_path('js/support-hours.js')) ?: '1' }}" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelectorAll('[data-count-to]').forEach(function (el) {
+        var target = Number(el.getAttribute('data-count-to') || 0);
+        if (!Number.isFinite(target)) return;
+        if (reduce || target === 0) {
+            el.textContent = String(target);
+            return;
+        }
+        var start = 0;
+        var duration = 700;
+        var t0 = null;
+        function tick(ts) {
+            if (t0 === null) t0 = ts;
+            var p = Math.min(1, (ts - t0) / duration);
+            var eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = String(Math.round(start + (target - start) * eased));
+            if (p < 1) window.requestAnimationFrame(tick);
+        }
+        el.textContent = '0';
+        window.requestAnimationFrame(tick);
+    });
+
+    document.querySelectorAll('[data-slb-stepper]').forEach(function (stepper) {
+        var fill = stepper.querySelector('.slb-stepper-fill');
+        if (!fill) return;
+        var width = fill.style.getPropertyValue('--slb-stepper-fill') || fill.style.width || '0%';
+        fill.style.width = '0%';
+        fill.style.setProperty('--slb-stepper-fill', '0%');
+        window.requestAnimationFrame(function () {
+            fill.style.setProperty('--slb-stepper-fill', width);
+            fill.style.width = width;
+        });
+    });
+});
+</script>
 @if(!($isNewAdvertiser ?? false) && !empty($spendCandles['has_spend']))
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>

@@ -323,6 +323,9 @@
       document.body.appendChild(this.panel);
     }
     this.positionPanel();
+    this.panel.classList.remove('is-open');
+    this.panel.style.display = 'flex';
+    void this.panel.offsetWidth;
     this.panel.classList.add('is-open');
     this.btn.classList.add('is-open');
     this.btn.setAttribute('aria-expanded', 'true');
@@ -340,28 +343,60 @@
     this.panel.classList.remove('is-open');
     this.btn.classList.remove('is-open');
     this.btn.setAttribute('aria-expanded', 'false');
-    if (this._panelHome && this.panel.parentElement === document.body) {
-      this._panelHome.appendChild(this.panel);
-      this.panel.style.position = '';
-      this.panel.style.top = '';
-      this.panel.style.left = '';
-      this.panel.style.right = '';
-      this.panel.style.width = '';
-      this.panel.style.zIndex = '';
-      this.panel.style.maxHeight = '';
+    const self = this;
+    const finish = function () {
+      if (self.panel) self.panel.style.display = '';
+      if (self._panelHome && self.panel.parentElement === document.body) {
+        self._panelHome.appendChild(self.panel);
+        self.panel.style.position = '';
+        self.panel.style.top = '';
+        self.panel.style.left = '';
+        self.panel.style.right = '';
+        self.panel.style.width = '';
+        self.panel.style.zIndex = '';
+        self.panel.style.maxHeight = '';
+      }
+    };
+    if (this.prefersReducedMotion()) finish();
+    else window.setTimeout(finish, 200);
+  };
+
+  NotificationCenter.prototype.prefersReducedMotion = function () {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  };
+
+  NotificationCenter.prototype.animateNewArrival = function () {
+    if (!this.btn || this.prefersReducedMotion()) return;
+    const self = this;
+    this.btn.classList.remove('is-shaking');
+    void this.btn.offsetWidth;
+    this.btn.classList.add('is-shaking');
+    window.setTimeout(function () {
+      self.btn.classList.remove('is-shaking');
+    }, 520);
+    if (this.badge) {
+      this.badge.classList.remove('is-popping');
+      void this.badge.offsetWidth;
+      this.badge.classList.add('is-popping');
+      window.setTimeout(function () {
+        self.badge.classList.remove('is-popping');
+      }, 280);
     }
   };
 
   NotificationCenter.prototype.setUnread = function (count, opts) {
     opts = opts || {};
+    const prev = this.unread || 0;
     this.unread = count || 0;
     this.btn.classList.remove('has-unread');
+    const increased = !!opts.alertOnIncrease && this.unread > prev;
     if (window.PulseBadge) {
       window.PulseBadge.sync(this.badge, this.unread, {
-        alertOnIncrease: !!opts.alertOnIncrease,
+        alertOnIncrease: increased,
         beep: opts.beep !== false,
         capAt: 9
       });
+      if (increased) this.animateNewArrival();
       this.syncUnreadLabel();
       this.syncMarkAllBar();
       return;
@@ -371,9 +406,10 @@
       this.badge.classList.add('is-visible', 'is-pulsing', 'pulse-badge');
       this.badge.style.display = 'inline-flex';
     } else {
-      this.badge.classList.remove('is-visible', 'is-pulsing', 'is-alerting');
+      this.badge.classList.remove('is-visible', 'is-pulsing', 'is-alerting', 'is-popping');
       this.badge.style.display = 'none';
     }
+    if (increased) this.animateNewArrival();
     this.syncUnreadLabel();
     this.syncMarkAllBar();
   };
@@ -545,8 +581,84 @@
 
   NotificationCenter.prototype.renderSkeleton = function () {
     this.list.innerHTML = [0, 1, 2].map(function () {
-      return '<div class="nc-skeleton"><div class="nc-skel-line med"></div><div class="nc-skel-line short"></div></div>';
+      return '<div class="nc-skeleton" aria-hidden="true">' +
+        '<div class="nc-skel-line med"></div>' +
+        '<div class="nc-skel-line short"></div>' +
+        '<div class="nc-skel-line" style="width:55%"></div>' +
+        '</div>';
     }).join('');
+  };
+
+  NotificationCenter.prototype.renderLifecycleStepper = function (stepper) {
+    if (!stepper || !stepper.steps || !stepper.steps.length) return '';
+    const current = Math.max(1, Number(stepper.current) || 1);
+    const fillPct = current <= 1 ? 0 : Math.round(((current - 1) / 3) * 100);
+    const stepsHtml = stepper.steps.map(function (step) {
+      return '<div class="slb-step is-' + escapeHtml(step.state || 'todo') + '" role="listitem">' +
+        '<i aria-hidden="true"></i><span>' + escapeHtml(step.label || '') + '</span></div>';
+    }).join('');
+    return '<div class="slb-stepper" data-step="' + current + '" data-slb-stepper role="list" aria-label="Order progress">' +
+      '<div class="slb-stepper-track" aria-hidden="true"></div>' +
+      '<div class="slb-stepper-fill" aria-hidden="true" style="--slb-stepper-fill:0%;width:0%;" data-fill-to="' + fillPct + '%"></div>' +
+      stepsHtml +
+      '</div>';
+  };
+
+  NotificationCenter.prototype.animateSteppers = function () {
+    if (!this.list) return;
+    const reduce = this.prefersReducedMotion();
+    this.list.querySelectorAll('[data-slb-stepper] .slb-stepper-fill[data-fill-to]').forEach(function (fill) {
+      const to = fill.getAttribute('data-fill-to') || '0%';
+      if (reduce) {
+        fill.style.setProperty('--slb-stepper-fill', to);
+        fill.style.width = to;
+        return;
+      }
+      fill.style.setProperty('--slb-stepper-fill', '0%');
+      fill.style.width = '0%';
+      window.requestAnimationFrame(function () {
+        fill.style.setProperty('--slb-stepper-fill', to);
+        fill.style.width = to;
+      });
+    });
+  };
+
+  NotificationCenter.prototype.findItemEl = function (id) {
+    if (!this.list || !id) return null;
+    const sid = String(id);
+    const direct = this.list.querySelector('.nc-item[data-nc-id="' + sid.replace(/"/g, '') + '"]');
+    if (direct) return direct;
+    let found = null;
+    this.list.querySelectorAll('.nc-item[data-nc-ids]').forEach(function (el) {
+      if (found) return;
+      const ids = (el.getAttribute('data-nc-ids') || '').split(',');
+      if (ids.indexOf(sid) !== -1) found = el;
+    });
+    return found;
+  };
+
+  NotificationCenter.prototype.animateItemLeaving = function (id, done) {
+    const el = this.findItemEl(id);
+    if (!el || this.prefersReducedMotion()) {
+      if (typeof done === 'function') done();
+      return;
+    }
+    el.classList.add('is-leaving');
+    window.setTimeout(function () {
+      if (typeof done === 'function') done();
+    }, 280);
+  };
+
+  NotificationCenter.prototype.animateMarkRead = function (id) {
+    const el = this.findItemEl(id);
+    if (!el) return;
+    el.classList.remove('is-unread');
+    const dot = el.querySelector('.nc-dot');
+    if (dot) {
+      dot.classList.remove('is-pulsing');
+      dot.style.opacity = '0';
+      dot.style.transform = 'scale(0)';
+    }
   };
 
   NotificationCenter.prototype.closeOpenKebab = function () {
@@ -610,6 +722,7 @@
     renderDayGroups(rest, html);
     this.list.innerHTML = html.value;
     this.bindListEvents();
+    this.animateSteppers();
   };
 
   NotificationCenter.prototype.bindListEvents = function () {
@@ -702,12 +815,19 @@
     }
 
     let timelineHtml = '';
-    if (n.timeline && n.timeline.length) {
-      timelineHtml = '<ol class="nc-timeline" aria-label="Order status">' +
-        n.timeline.map(function (step) {
-          return '<li class="nc-timeline-step is-' + escapeHtml(step.state || 'todo') + '">' +
-            escapeHtml(step.label || '') + '</li>';
-        }).join('') + '</ol>';
+    if (n.lifecycle_stepper && n.lifecycle_stepper.steps && n.lifecycle_stepper.steps.length) {
+      timelineHtml = this.renderLifecycleStepper(n.lifecycle_stepper);
+    } else if (n.timeline && n.timeline.length) {
+      timelineHtml = this.renderLifecycleStepper({
+        current: (function () {
+          var cur = 1;
+          n.timeline.forEach(function (step, i) {
+            if (step && step.state === 'current') cur = i + 1;
+          });
+          return cur;
+        })(),
+        steps: n.timeline
+      });
     }
 
     let eventsHtml = '';
@@ -813,9 +933,10 @@
 
   NotificationCenter.prototype.markRead = function (id) {
     const self = this;
+    this.animateMarkRead(id);
     this.post(this.config.readUrl.replace('__ID__', id)).then(function (data) {
       if (data.unread_count != null) self.setUnread(data.unread_count);
-      self.reload();
+      window.setTimeout(function () { self.reload(); }, self.prefersReducedMotion() ? 0 : 220);
     });
   };
 
@@ -835,9 +956,14 @@
       : 'Mark all notifications as read?';
     window.slbConfirm({ title: 'Mark all as read?', text: msg, confirmText: 'Mark all read' }).then(function (ok) {
       if (!ok) return;
+      if (self.list) {
+        self.list.querySelectorAll('.nc-item.is-unread').forEach(function (el) {
+          el.classList.remove('is-unread');
+        });
+      }
       self.post(self.config.readAllUrl).then(function () {
         self.setUnread(0);
-        self.reload();
+        window.setTimeout(function () { self.reload(); }, self.prefersReducedMotion() ? 0 : 220);
       });
     });
   };
@@ -846,7 +972,7 @@
     const self = this;
     this.post(this.config.archiveUrl.replace('__ID__', id)).then(function (data) {
       if (data.unread_count != null) self.setUnread(data.unread_count);
-      self.reload();
+      self.animateItemLeaving(id, function () { self.reload(); });
     });
   };
 
@@ -854,7 +980,7 @@
     const self = this;
     this.del(this.config.destroyUrl.replace('__ID__', id)).then(function (data) {
       if (data.unread_count != null) self.setUnread(data.unread_count);
-      self.reload();
+      self.animateItemLeaving(id, function () { self.reload(); });
     });
   };
 

@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Services\InAppNotificationService;
+use App\Support\AdvertiserOrderStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -86,6 +87,14 @@ class InAppNotificationPresenter
         $base['display_time'] = $this->displayTime($notification->created_at);
         $base['clock_time'] = $this->clockTime($notification->created_at);
         $base['day_group'] = $this->dayGroup($notification->created_at);
+        $base['lifecycle_stepper'] = null;
+        if ($order && ($base['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS) {
+            try {
+                $base['lifecycle_stepper'] = AdvertiserOrderStatus::lifecycleStepper($order, $item);
+            } catch (\Throwable) {
+                $base['lifecycle_stepper'] = null;
+            }
+        }
 
         return $base;
     }
@@ -187,8 +196,20 @@ class InAppNotificationPresenter
         $ids = collect($events)->pluck('id')->filter()->values()->all();
 
         $timeline = null;
-        if ($grouped && count($events) >= 1 && ($latest['order_id'] ?? null)) {
+        $lifecycle = null;
+        if (($latest['order_id'] ?? null) && ($latest['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS) {
             $timeline = $this->buildTimeline($events);
+            if (! empty($latest['lifecycle_stepper'])) {
+                $lifecycle = $latest['lifecycle_stepper'];
+            } elseif (is_array($timeline) && $timeline !== []) {
+                $current = 1;
+                foreach ($timeline as $i => $step) {
+                    if (($step['state'] ?? '') === 'current') {
+                        $current = $i + 1;
+                    }
+                }
+                $lifecycle = ['current' => $current, 'steps' => $timeline];
+            }
         }
 
         return array_merge($latest, [
@@ -199,6 +220,7 @@ class InAppNotificationPresenter
             'is_unread' => $anyUnread,
             'action_needed' => $anyAction || ! empty($latest['action_needed']),
             'timeline' => $timeline,
+            'lifecycle_stepper' => $lifecycle,
             // Prefer live URL / auto-approve from the most relevant event in the stack.
             'live_url' => collect($events)->first(fn ($e) => ! empty($e['live_url']))['live_url']
                 ?? ($latest['live_url'] ?? null),

@@ -67,12 +67,10 @@
         @if(!empty($item['auto_approve_label']))
             <p class="nc-auto-approve">{{ $item['auto_approve_label'] }}</p>
         @endif
-        @if(!empty($item['timeline']) && is_array($item['timeline']))
-            <ol class="nc-timeline" aria-label="Order status">
-                @foreach($item['timeline'] as $step)
-                    <li class="nc-timeline-step is-{{ $step['state'] ?? 'todo' }}">{{ $step['label'] ?? '' }}</li>
-                @endforeach
-            </ol>
+        @if(!empty($item['lifecycle_stepper']))
+            @include('partials.order-lifecycle-stepper', ['stepper' => $item['lifecycle_stepper']])
+        @elseif(!empty($item['timeline']) && is_array($item['timeline']))
+            @include('partials.order-lifecycle-stepper', ['stepper' => ['steps' => $item['timeline'], 'current' => 0]])
         @endif
         @if($isGroup && !empty($item['events']) && count($item['events']) > 1)
             <details class="nc-group-details">

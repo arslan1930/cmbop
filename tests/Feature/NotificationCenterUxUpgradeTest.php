@@ -76,6 +76,28 @@ class NotificationCenterUxUpgradeTest extends TestCase
         $this->assertStringContainsString('data-nc-filters-prev', $html);
         $this->assertStringContainsString('data-nc-filters-next', $html);
         $this->assertStringContainsString('Notification settings', $html);
+        $this->assertStringContainsString('nc-filter-l">Messages</span>', $html);
+        $this->assertStringContainsString('nc-filter-s">Msgs</span>', $html);
+        $this->assertStringContainsString('nc-filter-l">Payments</span>', $html);
+        $this->assertStringContainsString('nc-filter-s">Pay</span>', $html);
+        // Mark-all lives inside the dropdown only — not a topbar twin.
+        $this->assertSame(1, substr_count($html, 'data-nc-mark-all'));
+        $this->assertStringNotContainsString('nc-mark-all-bar', $html);
+    }
+
+    public function test_advertiser_sidebar_groups_and_dashboard_empty_hints(): void
+    {
+        $user = $this->makeAdvertiser();
+        $html = $this->actingAs($user)->get('/advertiser/dashboard')->getContent();
+
+        $this->assertStringContainsString('adv-nav-section', $html);
+        $this->assertStringContainsString('Buy', $html);
+        $this->assertStringContainsString('Money', $html);
+        $this->assertStringContainsString('Tools', $html);
+        $this->assertStringContainsString('kpi-hint', $html);
+        $this->assertStringContainsString('na-ic', $html);
+        $this->assertStringContainsString('order-lifecycle-stepper.css', $html);
+        $this->assertStringContainsString('data-count-to', $html);
     }
 
     public function test_index_groups_order_notifications_and_flags_action_needed(): void
@@ -145,6 +167,10 @@ class NotificationCenterUxUpgradeTest extends TestCase
         $this->assertStringContainsString('Auto-approves', $orderCard['auto_approve_label']);
         $this->assertNotEmpty($orderCard['favicon_url']);
         $this->assertNotEmpty($orderCard['timeline']);
+        $this->assertIsArray($orderCard['lifecycle_stepper'] ?? null);
+        $this->assertNotEmpty($orderCard['lifecycle_stepper']['steps'] ?? []);
+        $labels = collect($orderCard['lifecycle_stepper']['steps'])->pluck('label')->all();
+        $this->assertSame(['Placed', 'Accepted', 'Published', 'Approved'], $labels);
     }
 
     public function test_publisher_new_order_is_action_needed(): void
@@ -336,5 +362,10 @@ class NotificationCenterUxUpgradeTest extends TestCase
         $this->assertStringContainsString('Action needed', $js);
         $this->assertStringContainsString('syncFilterOverflow', $js);
         $this->assertStringContainsString('noopener', $js);
+        $this->assertStringContainsString('renderLifecycleStepper', $js);
+        $this->assertStringContainsString('animateNewArrival', $js);
+        $this->assertStringContainsString('is-leaving', $js);
+        $this->assertStringContainsString('is-shaking', $js);
+        $this->assertStringContainsString('is-popping', $js);
     }
 }
