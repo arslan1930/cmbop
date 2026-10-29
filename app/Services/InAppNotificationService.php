@@ -97,12 +97,18 @@ class InAppNotificationService
             $related = $options['related'] ?? null;
             $relatedType = $options['related_type'] ?? ($related instanceof Model ? get_class($related) : null);
             $relatedId = $options['related_id'] ?? ($related instanceof Model ? $related->getKey() : null);
+            $category = $options['category'] ?? $this->categoryForType($type);
+
+            // Bell category mute (defaults on when preferences table is missing).
+            if (! \App\Models\InAppNotificationPreference::allows($userId, $category)) {
+                return null;
+            }
 
             return InAppNotification::create([
                 'user_id' => $userId,
                 'audience' => $options['audience'] ?? $this->inferAudienceFromUrl($options['action_url'] ?? null),
                 'type' => $type,
-                'category' => $options['category'] ?? $this->categoryForType($type),
+                'category' => $category,
                 'title' => $title,
                 'message' => $message,
                 'icon' => $options['icon'] ?? $this->iconForType($type),

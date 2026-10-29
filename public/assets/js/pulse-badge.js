@@ -53,11 +53,15 @@
     }).catch(function () { /* autoplay / resume blocked — ignore */ });
   }
 
-  function show(el, count) {
+  function show(el, count, opts) {
     if (!el) return;
+    opts = opts || {};
     el.classList.add('pulse-badge');
     if (typeof count !== 'undefined' && count !== null) {
-      var label = count > 99 ? '99+' : String(count);
+      var cap = Number(opts.capAt);
+      if (!Number.isFinite(cap) || cap < 1) cap = 99;
+      var n = Number(count) || 0;
+      var label = n > cap ? (cap + '+') : String(n);
       el.textContent = label;
     }
     el.style.display = el.dataset.pulseDisplay || 'inline-flex';
@@ -101,7 +105,7 @@
     el.dataset.pulseCount = String(n);
 
     if (n > 0) {
-      show(el, n);
+      show(el, n, opts);
       if (opts.alertOnIncrease && n > prev) {
         alertOnce(el, { beep: opts.beep !== false });
       }

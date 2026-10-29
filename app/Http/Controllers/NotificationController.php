@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderActivity;
 use App\Services\InAppNotificationService;
 use App\Support\AdvertiserOrderDetails;
+use App\Support\InAppNotificationPresenter;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -14,7 +15,10 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class NotificationController extends Controller
 {
-    public function __construct(private InAppNotificationService $notifications) {}
+    public function __construct(
+        private InAppNotificationService $notifications,
+        private InAppNotificationPresenter $presenter,
+    ) {}
 
     /**
      * Full notification inbox page ("Show all").
@@ -35,9 +39,10 @@ class NotificationController extends Controller
         $status = match ($category) {
             'unread' => 'unread',
             'archived' => 'archived',
+            'action' => 'active',
             default => $request->get('status', 'inbox'),
         };
-        $filterCategory = in_array($category, ['unread', 'archived'], true) ? 'all' : $category;
+        $filterCategory = in_array($category, ['unread', 'archived', 'action'], true) ? 'all' : $category;
 
         $q = search_text($request->get('q'));
         try {
@@ -47,6 +52,14 @@ class NotificationController extends Controller
                 'q' => $q,
                 'audience' => $role,
             ], 30);
+            $presented = $this->presenter->presentMany($paginator->getCollection());
+            if ($category === 'action') {
+                $presented = array_values(array_filter(
+                    $presented,
+                    fn (array $n) => ! empty($n['action_needed'])
+                ));
+            }
+            $cards = $this->presenter->groupItems($presented);
             $unreadCount = $this->notifications->unreadCount($user->id, $role);
         } catch (\Throwable $e) {
             report($e);
@@ -58,12 +71,14 @@ class NotificationController extends Controller
                 'path' => $request->url(),
                 'query' => $request->query(),
             ]);
+            $cards = [];
             $unreadCount = 0;
         }
 
         return view('notifications.all', [
             'layout' => $layout,
             'notifications' => $paginator,
+            'notificationCards' => $cards,
             'unreadCount' => $unreadCount,
             'filters' => [
                 'status' => $status,
@@ -78,18 +93,23 @@ class NotificationController extends Controller
         try {
             $user = $request->user();
             $role = $user->activeRole();
+            // Fetch a wider window so the client can group order events into cards.
+            $perPage = min(50, max(1, (int) $request->get('per_page', 20)));
             $paginator = $this->notifications->listForUser($user->id, [
                 'status' => $request->get('status', 'active'),
                 'category' => $request->get('category', 'all'),
                 'q' => search_text($request->get('q')),
                 'audience' => $role,
-            ], (int) $request->get('per_page', 20));
+            ], $perPage);
 
-            $items = collect($paginator->items())->map(fn (InAppNotification $n) => $n->toApiArray())->values();
+            $presented = $this->presenter->presentMany($paginator->getCollection());
+            $grouped = $request->boolean('group', true);
+            $payload = $grouped ? $this->presenter->groupItems($presented) : $presented;
 
             return response()->json([
                 'success' => true,
-                'notifications' => $items,
+                'notifications' => $payload,
+                'ungrouped' => $presented,
                 'unread_count' => $this->notifications->unreadCount($user->id, $role),
                 'pagination' => [
                     'current_page' => $paginator->currentPage(),

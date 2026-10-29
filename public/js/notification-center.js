@@ -65,7 +65,6 @@
       if (parsed.origin === window.location.origin) {
         return parsed.pathname + parsed.search + parsed.hash;
       }
-      // Cross-origin absolute URL from misconfigured APP_URL — use path only.
       return parsed.pathname + parsed.search + parsed.hash;
     } catch (e) {
       return fallback || '/notifications';
@@ -81,6 +80,11 @@
       .replace(/'/g, '&#039;');
   }
 
+  function formatBadgeCount(n) {
+    n = Number(n) || 0;
+    return n > 9 ? '9+' : String(n);
+  }
+
   function relativeTime(iso) {
     if (!iso) return '';
     const date = new Date(iso);
@@ -91,6 +95,19 @@
     if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
     if (diff < 172800) return 'Yesterday';
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function clockTime(iso) {
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function displayTime(iso, dayLabel) {
+    if (!iso) return '';
+    if (dayLabel === 'Today') return relativeTime(iso);
+    return clockTime(iso);
   }
 
   function groupKey(iso) {
@@ -127,7 +144,9 @@
     this.search = root.querySelector('[data-nc-search]');
     this.showAllLink = root.querySelector('[data-nc-show-all]');
     this.footer = root.querySelector('[data-nc-footer]');
-    this.limit = 3;
+    // Fetch a wider window so order events can collapse into cards.
+    this.fetchLimit = 40;
+    this.cardLimit = 5;
 
     this.bind();
     this.refreshCount();
@@ -150,32 +169,34 @@
 
     document.addEventListener('click', function (e) {
       if (!self.open) return;
+      if (e.target.closest('[data-nc-kebab]')) return;
       if (self.root.contains(e.target) || self.panel.contains(e.target)) return;
       self.close();
     });
 
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && self.open) self.close();
+      if (e.key === 'Escape' && self.open) {
+        if (self.closeOpenKebab()) return;
+        self.close();
+      }
     });
 
     window.addEventListener('resize', function () {
-      if (self.open) self.positionPanel();
+      if (self.open) {
+        self.positionPanel();
+        self.syncFilterOverflow();
+      }
     });
     window.addEventListener('scroll', function () {
       if (self.open) self.positionPanel();
     }, true);
 
-    // Filters live inside the panel. After openPanel portals the panel to
-    // document.body they are no longer under this.root — always scope chip
-    // active-state updates to the panel (fallback root for safety).
     const filterButtons = (this.panel || this.root).querySelectorAll('[data-nc-filter]');
     filterButtons.forEach(function (el) {
       el.addEventListener('click', function () {
         const value = el.getAttribute('data-nc-filter') || 'all';
         const wasActive = el.classList.contains('is-active');
 
-        // Second click on the active chip clears it and returns to All
-        // (All itself stays selected — there is always one filter).
         let next = value;
         if (wasActive && value !== 'all') {
           next = 'all';
@@ -188,8 +209,6 @@
           self.status = 'active';
           self.filter = next;
         }
-        // Chip UI must follow this.filter/status — never leave multiple
-        // chips looking selected after the panel is portaled to body.
         self.syncFilterChips();
         self.reload();
       });
@@ -218,7 +237,6 @@
     }
 
     if (this.search) {
-      // Catalog-style live search: debounce typing, Enter runs immediately.
       this.search.addEventListener('input', function () {
         clearTimeout(self.searchTimer);
         self.searchTimer = setTimeout(function () {
@@ -234,6 +252,46 @@
         self.reload();
       });
     }
+
+    const wrap = (this.panel || this.root).querySelector('[data-nc-filters-wrap]');
+    if (wrap) {
+      const prev = wrap.querySelector('[data-nc-filters-prev]');
+      const next = wrap.querySelector('[data-nc-filters-next]');
+      const scroller = wrap.querySelector('[data-nc-filters]');
+      if (prev && scroller) {
+        prev.addEventListener('click', function (e) {
+          e.preventDefault();
+          scroller.scrollBy({ left: -120, behavior: 'smooth' });
+        });
+      }
+      if (next && scroller) {
+        next.addEventListener('click', function (e) {
+          e.preventDefault();
+          scroller.scrollBy({ left: 120, behavior: 'smooth' });
+        });
+      }
+      if (scroller) {
+        scroller.addEventListener('scroll', function () {
+          self.syncFilterOverflow();
+        }, { passive: true });
+      }
+    }
+  };
+
+  NotificationCenter.prototype.syncFilterOverflow = function () {
+    const wrap = (this.panel || this.root).querySelector('[data-nc-filters-wrap]');
+    if (!wrap) return;
+    const scroller = wrap.querySelector('[data-nc-filters]');
+    const prev = wrap.querySelector('[data-nc-filters-prev]');
+    const next = wrap.querySelector('[data-nc-filters-next]');
+    if (!scroller) return;
+    const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+    const overflow = maxScroll > 4;
+    wrap.classList.toggle('has-overflow', overflow);
+    wrap.classList.toggle('at-start', scroller.scrollLeft <= 2);
+    wrap.classList.toggle('at-end', scroller.scrollLeft >= maxScroll - 2);
+    if (prev) prev.hidden = !overflow || scroller.scrollLeft <= 2;
+    if (next) next.hidden = !overflow || scroller.scrollLeft >= maxScroll - 2;
   };
 
   NotificationCenter.prototype.toggle = function () {
@@ -259,8 +317,6 @@
 
   NotificationCenter.prototype.openPanel = function () {
     this.open = true;
-    // Portal to body so sticky/overflow topbar chrome cannot clip or swallow clicks.
-    // Keep nc-theme on the panel so CSS variables still resolve outside .nc-bell-wrap.
     this.panel.classList.add('nc-theme');
     if (this.panel.parentElement !== document.body) {
       this._panelHome = this.panel.parentElement;
@@ -272,10 +328,15 @@
     this.btn.setAttribute('aria-expanded', 'true');
     this.syncFilterChips();
     this.reload();
+    const self = this;
+    window.requestAnimationFrame(function () {
+      self.syncFilterOverflow();
+    });
   };
 
   NotificationCenter.prototype.close = function () {
     this.open = false;
+    this.closeOpenKebab();
     this.panel.classList.remove('is-open');
     this.btn.classList.remove('is-open');
     this.btn.setAttribute('aria-expanded', 'false');
@@ -294,18 +355,19 @@
   NotificationCenter.prototype.setUnread = function (count, opts) {
     opts = opts || {};
     this.unread = count || 0;
-    // Pulse / alert only the badge — never the bell button
     this.btn.classList.remove('has-unread');
     if (window.PulseBadge) {
       window.PulseBadge.sync(this.badge, this.unread, {
         alertOnIncrease: !!opts.alertOnIncrease,
-        beep: opts.beep !== false
+        beep: opts.beep !== false,
+        capAt: 9
       });
       this.syncUnreadLabel();
+      this.syncMarkAllBar();
       return;
     }
     if (this.unread > 0) {
-      this.badge.textContent = this.unread > 99 ? '99+' : String(this.unread);
+      this.badge.textContent = formatBadgeCount(this.unread);
       this.badge.classList.add('is-visible', 'is-pulsing', 'pulse-badge');
       this.badge.style.display = 'inline-flex';
     } else {
@@ -349,18 +411,11 @@
     if (retry) retry.addEventListener('click', function () { self.reload(); });
   };
 
-  /**
-   * Active chip key for UI: "unread" when status=unread, else category filter.
-   */
   NotificationCenter.prototype.activeChipValue = function () {
     if (this.status === 'unread') return 'unread';
     return this.filter || 'all';
   };
 
-  /**
-   * Keep exactly one filter chip selected. Always query from the panel
-   * (portaled to document.body while open), never assume chips stay under root.
-   */
   NotificationCenter.prototype.syncFilterChips = function () {
     const scope = this.panel || this.root;
     if (!scope) return;
@@ -416,10 +471,11 @@
     const indexUrl = sameOriginUrl(this.config.indexUrl, '/notifications');
     const params = new URLSearchParams({
       page: '1',
-      per_page: String(this.limit),
+      per_page: String(this.fetchLimit),
       status: this.status,
       category: this.filter,
-      q: this.query || ''
+      q: this.query || '',
+      group: '1'
     });
 
     fetch(indexUrl + (indexUrl.indexOf('?') === -1 ? '?' : '&') + params.toString(), {
@@ -449,36 +505,32 @@
           self.showLoadError(data.message || 'success=false');
           return;
         }
-        const rawBatch = data.notifications || [];
-        // Defense in depth: if a category chip is active, never paint rows from
-        // another category (e.g. account/system under Orders).
-        let batch = rawBatch;
+        let batch = data.notifications || [];
         if (self.filter && self.filter !== 'all') {
-          batch = rawBatch.filter(function (n) {
+          batch = batch.filter(function (n) {
             return n && String(n.category || '') === self.filter;
           });
         }
         if (self.status === 'unread') {
           batch = batch.filter(function (n) { return n && n.is_unread; });
         }
-        self.items = batch.slice(0, self.limit);
-        self.hasMore = !!(data.pagination && (data.pagination.has_more || data.pagination.total > self.limit));
+        self.items = batch.slice(0, self.cardLimit);
+        self.hasMore = !!(data.pagination && (data.pagination.has_more || data.pagination.total > self.fetchLimit))
+          || batch.length > self.cardLimit;
         try {
           self.syncFilterChips();
           self.setUnread(data.unread_count || 0);
           self.renderList();
+          self.syncFilterOverflow();
         } catch (err) {
           self.showLoadError(err);
           return;
         }
         if (self.footer) self.footer.style.display = 'block';
         if (self.showAllLink) {
-          // Keep Show all clickable even when the active chip (Unread) is empty.
           self.showAllLink.style.display = 'inline-flex';
           const baseAll = sameOriginUrl(self.config.allUrl, '/notifications/all');
           const allParams = new URLSearchParams();
-          // Show all is the full inbox. Do not carry the default Unread chip
-          // (that page would look empty after a task is archived).
           if (self.filter && self.filter !== 'all') allParams.set('category', self.filter);
           if (self.query) allParams.set('q', self.query);
           const qs = allParams.toString();
@@ -497,6 +549,16 @@
     }).join('');
   };
 
+  NotificationCenter.prototype.closeOpenKebab = function () {
+    const open = (this.panel || this.root).querySelector('.nc-kebab-menu:not([hidden])');
+    if (!open) return false;
+    const wrap = open.closest('[data-nc-kebab]');
+    const btn = wrap && wrap.querySelector('[data-nc-kebab-toggle]');
+    open.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    return true;
+  };
+
   NotificationCenter.prototype.renderList = function () {
     const self = this;
     if (!this.items.length) {
@@ -512,28 +574,81 @@
       return;
     }
 
-    const groups = { Today: [], Yesterday: [], Earlier: [] };
+    // Pin action-needed cards above info-only, then day-group within each bucket.
+    const actionNeeded = [];
+    const rest = [];
     this.items.forEach(function (item) {
-      groups[groupKey(item.created_at)].push(item);
+      if (item && item.action_needed) actionNeeded.push(item);
+      else rest.push(item);
     });
 
-    let html = '';
-    ['Today', 'Yesterday', 'Earlier'].forEach(function (label) {
-      const rows = groups[label];
-      if (!rows.length) return;
-      html += '<div class="nc-group-label">' + label + '</div>';
-      rows.forEach(function (n) {
-        html += self.renderItem(n);
+    function renderDayGroups(list, html) {
+      const groups = { Today: [], Yesterday: [], Earlier: [] };
+      list.forEach(function (item) {
+        const day = item.day_group || groupKey(item.created_at);
+        if (!groups[day]) groups[day] = [];
+        groups[day].push(item);
+      });
+      ['Today', 'Yesterday', 'Earlier'].forEach(function (label) {
+        const rows = groups[label] || [];
+        if (!rows.length) return;
+        html.value += '<div class="nc-group-label">' + label + '</div>';
+        rows.forEach(function (n) {
+          html.value += self.renderItem(n, label);
+        });
+      });
+    }
+
+    const html = { value: '' };
+    if (actionNeeded.length) {
+      html.value += '<div class="nc-group-label">Action needed</div>';
+      actionNeeded.forEach(function (n) {
+        const day = n.day_group || groupKey(n.created_at);
+        html.value += self.renderItem(n, day);
+      });
+    }
+    renderDayGroups(rest, html);
+    this.list.innerHTML = html.value;
+    this.bindListEvents();
+  };
+
+  NotificationCenter.prototype.bindListEvents = function () {
+    const self = this;
+
+    this.list.querySelectorAll('[data-nc-favicon]').forEach(function (img) {
+      img.addEventListener('error', function () {
+        img.style.display = 'none';
+        const fb = img.nextElementSibling;
+        if (fb) fb.hidden = false;
       });
     });
-    this.list.innerHTML = html;
 
-    this.list.querySelectorAll('[data-nc-id]').forEach(function (el) {
+    this.list.querySelectorAll('.nc-item').forEach(function (el) {
       el.addEventListener('click', function (e) {
-        if (e.target.closest('[data-nc-tool]')) return;
+        if (e.target.closest('[data-nc-tool], [data-nc-kebab], .nc-open-link, .nc-group-details, a')) {
+          return;
+        }
         const id = el.getAttribute('data-nc-id');
         const url = el.getAttribute('data-nc-url');
         self.openNotification(id, url);
+      });
+    });
+
+    this.list.querySelectorAll('[data-nc-kebab-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const wrap = btn.closest('[data-nc-kebab]');
+        const menu = wrap && wrap.querySelector('.nc-kebab-menu');
+        const willOpen = menu && menu.hidden;
+        self.closeOpenKebab();
+        if (!menu) return;
+        menu.hidden = !willOpen;
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) {
+          const first = menu.querySelector('[role="menuitem"]');
+          if (first) first.focus();
+        }
       });
     });
 
@@ -566,33 +681,96 @@
   /**
    * Shared NotificationCard markup (mirrors partials/notification-card.blade.php).
    */
-  NotificationCenter.prototype.renderItem = function (n) {
+  NotificationCenter.prototype.renderItem = function (n, dayLabel) {
     const iconName = iconByType[n.type] || n.icon || 'bell';
     const unreadClass = n.is_unread ? ' is-unread' : '';
+    const actionClass = n.action_needed ? ' is-action-needed' : '';
+    const groupClass = n.is_group ? ' is-group' : '';
     const dotPulse = n.is_unread ? ' pulse-badge is-pulsing' : '';
+    const timeLabel = n.display_time || displayTime(n.created_at, dayLabel || n.day_group);
+    const ids = (n.event_ids && n.event_ids.length)
+      ? n.event_ids.join(',')
+      : String(n.id || '');
+    const primaryId = n.id || (n.event_ids && n.event_ids[0]) || '';
+
+    let iconHtml;
+    if (n.favicon_url) {
+      iconHtml = '<img src="' + escapeHtml(n.favicon_url) + '" alt="" class="nc-favicon" width="18" height="18" loading="lazy" data-nc-favicon>' +
+        '<span class="nc-icon-fallback" hidden>' + lucideIcon(iconName) + '</span>';
+    } else {
+      iconHtml = lucideIcon(iconName);
+    }
+
+    let timelineHtml = '';
+    if (n.timeline && n.timeline.length) {
+      timelineHtml = '<ol class="nc-timeline" aria-label="Order status">' +
+        n.timeline.map(function (step) {
+          return '<li class="nc-timeline-step is-' + escapeHtml(step.state || 'todo') + '">' +
+            escapeHtml(step.label || '') + '</li>';
+        }).join('') + '</ol>';
+    }
+
+    let eventsHtml = '';
+    if (n.is_group && n.events && n.events.length > 1) {
+      eventsHtml = '<details class="nc-group-details">' +
+        '<summary>' + n.events.length + ' updates</summary>' +
+        '<ul class="nc-group-events">' +
+        n.events.map(function (ev) {
+          return '<li><strong>' + escapeHtml(ev.title || '') + '</strong> ' +
+            '<span class="nc-item-time">' + escapeHtml(ev.display_time || displayTime(ev.created_at, dayLabel)) + '</span></li>';
+        }).join('') +
+        '</ul></details>';
+    }
+
+    const actions = [];
+    if (n.action_url) {
+      actions.push('<a class="nc-item-action" href="' + escapeHtml(n.action_url) + '">' +
+        escapeHtml(n.action_label || 'View details') + ' →</a>');
+    }
+    if (n.live_url) {
+      actions.push('<a class="nc-open-link" href="' + escapeHtml(n.live_url) +
+        '" target="_blank" rel="noopener noreferrer">Open link</a>');
+    }
+
+    const kebabRead = n.is_unread
+      ? '<button type="button" class="nc-kebab-item" role="menuitem" data-nc-tool="read" data-id="' + primaryId + '">Mark as read</button>'
+      : (!n.is_archived
+        ? '<button type="button" class="nc-kebab-item" role="menuitem" data-nc-tool="unread" data-id="' + primaryId + '">Mark as unread</button>'
+        : '');
+
     return (
-      '<button type="button" class="nc-item' + unreadClass + '" data-nc-id="' + n.id + '" data-nc-url="' + escapeHtml(n.action_url || '') + '">' +
-        '<div class="nc-icon" aria-hidden="true">' + lucideIcon(iconName) + '</div>' +
+      '<div class="nc-item' + unreadClass + actionClass + groupClass + '" data-nc-id="' + primaryId +
+        '" data-nc-ids="' + escapeHtml(ids) + '" data-nc-url="' + escapeHtml(n.action_url || '') + '">' +
+        '<div class="nc-icon" aria-hidden="true">' + iconHtml + '</div>' +
         '<div class="nc-item-main">' +
-          '<p class="nc-item-title">' + escapeHtml(n.title) + '</p>' +
+          '<div class="nc-item-title-row">' +
+            '<p class="nc-item-title">' + escapeHtml(n.title) + '</p>' +
+            (n.action_needed ? '<span class="nc-action-tag">Action needed</span>' : '') +
+          '</div>' +
           (n.message ? '<p class="nc-item-msg">' + escapeHtml(n.message) + '</p>' : '') +
+          (n.auto_approve_label ? '<p class="nc-auto-approve">' + escapeHtml(n.auto_approve_label) + '</p>' : '') +
+          timelineHtml +
+          eventsHtml +
           '<div class="nc-item-meta">' +
-            '<span class="nc-item-time">' + escapeHtml(relativeTime(n.created_at)) + '</span>' +
+            '<span class="nc-item-time">' + escapeHtml(timeLabel) + '</span>' +
             (n.is_unread ? '<span class="nc-item-state">Unread</span>' : (n.is_archived ? '<span class="nc-item-state is-archived">Archived</span>' : '')) +
-            (n.action_url ? '<span class="nc-item-action">' + escapeHtml(n.action_label || 'View details') + ' →</span>' : '') +
+            actions.join('') +
           '</div>' +
         '</div>' +
         '<div class="nc-item-aside">' +
           '<span class="nc-dot' + dotPulse + '" aria-hidden="true"></span>' +
-          '<div class="nc-item-tools">' +
-            (n.is_unread
-              ? '<span class="nc-tool" data-nc-tool="read" data-id="' + n.id + '">Mark as read</span>'
-              : (!n.is_archived ? '<span class="nc-tool" data-nc-tool="unread" data-id="' + n.id + '">Mark as unread</span>' : '')) +
-            '<span class="nc-tool" data-nc-tool="archive" data-id="' + n.id + '">Archive</span>' +
-            '<span class="nc-tool nc-tool--muted" data-nc-tool="delete" data-id="' + n.id + '">Delete</span>' +
+          '<div class="nc-kebab" data-nc-kebab>' +
+            '<button type="button" class="nc-kebab-btn" data-nc-kebab-toggle aria-haspopup="menu" aria-expanded="false" aria-label="Notification actions">' +
+              '<span aria-hidden="true">⋯</span>' +
+            '</button>' +
+            '<div class="nc-kebab-menu" role="menu" hidden>' +
+              kebabRead +
+              '<button type="button" class="nc-kebab-item" role="menuitem" data-nc-tool="archive" data-id="' + primaryId + '">Archive</button>' +
+              '<button type="button" class="nc-kebab-item nc-kebab-item--danger" role="menuitem" data-nc-tool="delete" data-id="' + primaryId + '">Delete</button>' +
+            '</div>' +
           '</div>' +
         '</div>' +
-      '</button>'
+      '</div>'
     );
   };
 
@@ -694,7 +872,8 @@
       readAllUrl: sameOriginUrl(root.getAttribute('data-read-all-url'), '/notifications/read-all'),
       archiveUrl: sameOriginUrl(root.getAttribute('data-archive-url'), '/notifications/__ID__/archive'),
       destroyUrl: sameOriginUrl(root.getAttribute('data-destroy-url'), '/notifications/__ID__'),
-      allUrl: sameOriginUrl(root.getAttribute('data-all-url'), '/notifications/all')
+      allUrl: sameOriginUrl(root.getAttribute('data-all-url'), '/notifications/all'),
+      settingsUrl: sameOriginUrl(root.getAttribute('data-settings-url'), '/profile/notifications')
     };
     return new NotificationCenter(root, cfg);
   };
