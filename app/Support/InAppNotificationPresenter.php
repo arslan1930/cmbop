@@ -199,16 +199,26 @@ class InAppNotificationPresenter
         $lifecycle = null;
         if (($latest['order_id'] ?? null) && ($latest['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS) {
             $timeline = $this->buildTimeline($events);
-            if (! empty($latest['lifecycle_stepper'])) {
-                $lifecycle = $latest['lifecycle_stepper'];
-            } elseif (is_array($timeline) && $timeline !== []) {
+            $fromTimeline = null;
+            if (is_array($timeline) && $timeline !== []) {
                 $current = 1;
                 foreach ($timeline as $i => $step) {
                     if (($step['state'] ?? '') === 'current') {
                         $current = $i + 1;
                     }
                 }
-                $lifecycle = ['current' => $current, 'steps' => $timeline];
+                $fromTimeline = ['current' => $current, 'steps' => $timeline];
+            }
+            $fromOrder = ! empty($latest['lifecycle_stepper']) && is_array($latest['lifecycle_stepper'])
+                ? $latest['lifecycle_stepper']
+                : null;
+            // Prefer whichever view is further along (event timeline can lead the order row).
+            if ($fromTimeline && $fromOrder) {
+                $lifecycle = ((int) ($fromTimeline['current'] ?? 0) >= (int) ($fromOrder['current'] ?? 0))
+                    ? $fromTimeline
+                    : $fromOrder;
+            } else {
+                $lifecycle = $fromOrder ?? $fromTimeline;
             }
         }
 

@@ -655,13 +655,15 @@ class AdvertiserOrderStatus
             $hasLiveUrl = $item && filled($item->live_url);
         }
 
+        // Some legacy/demo rows use in_progress instead of processing.
+        $activeStatuses = ['processing', 'in_progress', 'review', 'completed'];
         $paid = in_array((string) $order->payment_status, ['paid', 'completed', 'refunded'], true)
-            || in_array($status, ['processing', 'review', 'completed'], true);
+            || in_array($status, $activeStatuses, true);
         $accepted = $paid && (
-            in_array($status, ['processing', 'review', 'completed'], true)
+            in_array($status, $activeStatuses, true)
             || ($item && ! empty($item->accepted_at))
         );
-        $published = $hasLiveUrl && in_array($status, ['review', 'completed'], true);
+        $published = $hasLiveUrl && in_array($status, ['review', 'completed', 'in_progress'], true);
         $approved = $status === 'completed';
 
         $current = 1;
