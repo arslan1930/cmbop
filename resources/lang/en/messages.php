@@ -6,6 +6,10 @@ return [
     'Sign Up' => 'Sign Up',
     'Dashboard' => 'Dashboard',
     'logout' => 'Logout',
+    'nav_section_buy' => 'Buy',
+    'nav_section_orders' => 'Orders',
+    'nav_section_money' => 'Money',
+    'nav_section_tools' => 'Tools',
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',

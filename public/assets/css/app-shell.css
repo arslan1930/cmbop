@@ -210,6 +210,21 @@ body.role-shell-marketing #sidebar {
 
 #sidebar .menu { flex-grow: 1; overflow-y: auto; padding-bottom: 12px; }
 
+/* Advertiser sidebar section headings (Buy / Orders / Money / Tools) */
+.adv-nav-section {
+  padding: 14px 22px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-ink-muted, #697078);
+  line-height: 1.2;
+}
+
+#sidebar.collapsed .adv-nav-section {
+  display: none;
+}
+
 #sidebar a {
   display: flex;
   align-items: center;

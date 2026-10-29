@@ -227,8 +227,17 @@ class NotificationCenterOrdersFilterTest extends TestCase
                 || str_contains($js, 'syncFilterChips'),
                 basename($path).' must update filter chips via panel after body portal'
             );
-            $this->assertStringContainsString('per_page: String(this.limit)', $js);
-            $this->assertStringContainsString('this.limit = 3', $js);
+            // Wider fetch window for order grouping; cardLimit caps dropdown cards.
+            $this->assertTrue(
+                str_contains($js, 'per_page: String(this.fetchLimit)')
+                || str_contains($js, 'per_page: String(this.limit)'),
+                basename($path).' must pass per_page for the dropdown fetch'
+            );
+            $this->assertTrue(
+                str_contains($js, 'this.fetchLimit = 40')
+                || str_contains($js, 'this.limit = 3'),
+                basename($path).' must define a dropdown fetch/card limit'
+            );
             $this->assertStringContainsString('280', $js); // search debounce
             $this->assertStringContainsString('No matching notifications.', $js);
             $this->assertStringContainsString('syncFilterChips', $js);

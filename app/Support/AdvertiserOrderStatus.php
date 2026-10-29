@@ -633,4 +633,75 @@ class AdvertiserOrderStatus
 
         return $steps;
     }
+
+    /**
+     * Compact Placed → Accepted → Published → Approved stepper for
+     * the notifications dropdown and dashboard Recent orders.
+     *
+     * @return array{current: int, steps: list<array{key: string, label: string, state: string}>}
+     */
+    public static function lifecycleStepper(Order $order, ?OrderItem $item = null): array
+    {
+        try {
+            $item = $item ?? $order->items->first();
+        } catch (\Throwable) {
+            $item = $item ?? null;
+        }
+
+        $status = (string) $order->status;
+        try {
+            $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+        } catch (\Throwable) {
+            $hasLiveUrl = $item && filled($item->live_url);
+        }
+
+        // Some legacy/demo rows use in_progress instead of processing.
+        $activeStatuses = ['processing', 'in_progress', 'review', 'completed'];
+        $paid = in_array((string) $order->payment_status, ['paid', 'completed', 'refunded'], true)
+            || in_array($status, $activeStatuses, true);
+        $accepted = $paid && (
+            in_array($status, $activeStatuses, true)
+            || ($item && ! empty($item->accepted_at))
+        );
+        $published = $hasLiveUrl && in_array($status, ['review', 'completed', 'in_progress'], true);
+        $approved = $status === 'completed';
+
+        $current = 1;
+        if ($approved) {
+            $current = 4;
+        } elseif ($published) {
+            $current = 3;
+        } elseif ($accepted) {
+            $current = 2;
+        } elseif ($paid) {
+            $current = 1;
+        }
+
+        $labels = [
+            1 => ['key' => 'placed', 'label' => 'Placed'],
+            2 => ['key' => 'accepted', 'label' => 'Accepted'],
+            3 => ['key' => 'published', 'label' => 'Published'],
+            4 => ['key' => 'approved', 'label' => 'Approved'],
+        ];
+
+        $steps = [];
+        foreach ($labels as $i => $meta) {
+            $state = 'todo';
+            if ($i < $current) {
+                $state = 'done';
+            } elseif ($i === $current) {
+                $state = 'current';
+            }
+            $steps[] = [
+                'key' => $meta['key'],
+                'label' => $meta['label'],
+                'state' => $state,
+            ];
+        }
+
+        return [
+            'current' => $current,
+            'steps' => $steps,
+        ];
+    }
 }

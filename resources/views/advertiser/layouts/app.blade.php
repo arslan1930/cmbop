@@ -58,7 +58,8 @@
     <link href="{{ asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/glass-tip.css') }}?v={{ @filemtime(public_path('assets/css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/pulse-badge.css') }}?v={{ @filemtime(public_path('assets/css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
-    <link href="{{ asset('assets/css/notification-center.css') }}?v={{ @filemtime(public_path('assets/css/notification-center.css')) ?: '5' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/notification-center.css') }}?v={{ @filemtime(public_path('assets/css/notification-center.css')) ?: '6' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/order-lifecycle-stepper.css') }}?v={{ @filemtime(public_path('assets/css/order-lifecycle-stepper.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/dialog-system.css') }}?v={{ @filemtime(public_path('assets/css/dialog-system.css')) ?: '1' }}" rel="stylesheet">
     {{-- Page stylesheets belong here, not in @section('content'): loading them
          with the body made the page paint unstyled first, and put them after the
@@ -102,21 +103,28 @@
         </div>
 
         <a href="{{ route('advertiser.dashboard') }}" class="{{ request()->routeIs('advertiser.dashboard') ? 'active' : '' }}">
-            <i class="fa fa-tachometer-alt" aria-hidden="true"></i> <span class="nav-label">Dashboard</span>
+            <i class="fa fa-tachometer-alt" aria-hidden="true"></i> <span class="nav-label">{{ __('messages.Dashboard') }}</span>
         </a>
 
-        <!-- Catalog -->
+        <div class="adv-nav-section">{{ __('messages.nav_section_buy') }}</div>
         <a href="{{ route('advertiser.catalog') }}" class="{{ request()->routeIs('advertiser.catalog') ? 'active' : '' }}">
             <i class="fa fa-list" aria-hidden="true"></i>
             <span class="nav-label">Catalog</span>
         </a>
-
+        <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
+            <i class="fa-solid fa-heart nav-icon-heart" aria-hidden="true"></i>
+            <span class="nav-label">Saved Sites</span>
+        </a>
+        <a href="{{ route('advertiser.saved-searches') }}" class="{{ request()->routeIs('advertiser.saved-searches*') ? 'active' : '' }}">
+            <i class="fa fa-bookmark" aria-hidden="true"></i>
+            <span class="nav-label">Saved searches</span>
+        </a>
         <a href="{{ route('advertiser.content-library') }}" class="{{ request()->routeIs('advertiser.content-library*') ? 'active' : '' }}">
             <i class="fa fa-file-word" aria-hidden="true"></i>
             <span class="nav-label">Content Library</span>
         </a>
 
-        <!-- Orders -->
+        <div class="adv-nav-section">{{ __('messages.nav_section_orders') }}</div>
         <a href="{{ route('advertiser.orders') }}" class="{{ request()->routeIs('advertiser.orders') ? 'active' : '' }}">
             <i class="fa fa-shopping-cart" aria-hidden="true"></i>
             <span class="nav-label d-flex align-items-center w-100">
@@ -143,21 +151,10 @@
                 @endif
             </span>
         </a>
-
-        <a href="{{ route('advertiser.saved-sites') }}" class="{{ request()->routeIs('advertiser.saved-sites*') ? 'active' : '' }}">
-            <i class="fa-solid fa-heart nav-icon-heart" aria-hidden="true"></i>
-            <span class="nav-label">Saved Sites</span>
-        </a>
-        <a href="{{ route('advertiser.saved-searches') }}" class="{{ request()->routeIs('advertiser.saved-searches*') ? 'active' : '' }}">
-            <i class="fa fa-bookmark" aria-hidden="true"></i>
-            <span class="nav-label">Saved searches</span>
-        </a>
-
         <a href="{{ route('advertiser.projects.index') }}" class="{{ request()->routeIs('advertiser.projects*') ? 'active' : '' }}">
             <i class="fa fa-folder-open" aria-hidden="true"></i>
             <span class="nav-label">Projects</span>
         </a>
-
         @if(auth()->user()?->hasRole('publisher'))
             <a href="{{ route('advertiser.site-claims') }}" class="{{ request()->routeIs('advertiser.site-claims') || request()->routeIs('site-claims.*') ? 'active' : '' }}">
                 <i class="fa fa-user-check" aria-hidden="true"></i>
@@ -165,26 +162,22 @@
             </a>
         @endif
 
-        <!-- Add Funds -->
+        <div class="adv-nav-section">{{ __('messages.nav_section_money') }}</div>
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds*') || request()->routeIs('advertiser.balance*') ? 'active' : '' }}">
             <i class="fa fa-coins" aria-hidden="true"></i> <span class="nav-label">Add Funds</span>
         </a>
-
         <a href="{{ route('advertiser.billing.index') }}" class="{{ request()->routeIs('advertiser.billing*') ? 'active' : '' }}">
             <i class="fa fa-file-invoice" aria-hidden="true"></i>
             <span class="nav-label">Billing &amp; Invoices</span>
         </a>
-        
-        <!-- Spending History -->
         <a href="{{ route('advertiser.analytics') }}" class="{{ request()->routeIs('advertiser.analytics*') ? 'active' : '' }}">
             <i class="fa fa-chart-area" aria-hidden="true"></i> <span class="nav-label">Spending</span>
         </a>
 
-        <!-- Reports -->
+        <div class="adv-nav-section">{{ __('messages.nav_section_tools') }}</div>
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line" aria-hidden="true"></i> <span class="nav-label">Reports</span>
         </a>
-
         <a href="{{ route('advertiser.api.index') }}" class="{{ request()->routeIs('advertiser.api*') ? 'active' : '' }}">
             <i class="fa fa-key" aria-hidden="true"></i> <span class="nav-label">API &amp; MCP</span>
         </a>

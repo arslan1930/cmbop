@@ -47,6 +47,7 @@
     <link href="{{ asset('assets/css/glass-tip.css') }}?v={{ @filemtime(public_path('assets/css/glass-tip.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/pulse-badge.css') }}?v={{ @filemtime(public_path('assets/css/pulse-badge.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/notification-center.css') }}?v={{ @filemtime(public_path('assets/css/notification-center.css')) ?: '6' }}" rel="stylesheet">
+    <link href=\"{{ asset('assets/css/order-lifecycle-stepper.css') }}?v={{ @filemtime(public_path('assets/css/order-lifecycle-stepper.css')) ?: '1' }}\" rel=\"stylesheet\">
     <link href="{{ asset('assets/css/dialog-system.css') }}?v={{ @filemtime(public_path('assets/css/dialog-system.css')) ?: '1' }}" rel="stylesheet">
     {{-- Admin overrides sit before hover-system.css, which must stay last in the
          cascade; they win where needed through body.role-shell-admin specificity. --}}
