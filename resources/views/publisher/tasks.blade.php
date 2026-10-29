@@ -545,6 +545,39 @@ $(document).ready(function() {
         showTasksModal('acceptModal');
     });
 
+    $(document).on('click', '.accept-pack-all', function() {
+        var packId = $(this).data('pack-id');
+        if (!packId) return;
+        Swal.fire({
+            title: 'Accept all remaining articles?',
+            text: 'Accept every pending article in this pack that belongs to your sites.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Accept all',
+            cancelButtonText: 'Cancel'
+        }).then(function(result) {
+            if (!(result && (result.isConfirmed || result.value === true))) return;
+            $.ajax({
+                url: baseUrl + '/publisher/orders/packs/' + encodeURIComponent(packId) + '/accept-all',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Success!', response.message || 'Pack articles accepted.', 'success');
+                        loadTasks();
+                        loadStatistics();
+                    } else {
+                        Swal.fire('Error!', response.message || 'Failed to accept pack', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    slbHandleHttpError(xhr, { fallback: 'Failed to accept pack' });
+                }
+            });
+        });
+    });
+
     $(document).on('click', '.reject-task', function() {
         var $btn = $(this);
         $('#reject_order_item_id').val($btn.data('id'));
@@ -1199,7 +1232,7 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
-                    renderTasksTable(response.data);
+                    renderTasksTable(response.data, response.grouped);
                     if (response.pagination) {
                         renderPagination(response.pagination);
                         var p = response.pagination;
@@ -1230,9 +1263,42 @@ $(document).ready(function() {
         });
     }
 
-    function renderTasksTable(orderItems) {
-        window._publisherTaskItems = Array.isArray(orderItems) ? orderItems : [];
-        if (!orderItems || orderItems.length === 0) {
+    function renderPackHeaderRow(pack) {
+        var pending = parseInt(pack.pending_accept_count || 0, 10) || 0;
+        var label = (pack.label || ('Pack of ' + (pack.pack_size || ''))) +
+            (pack.site_name ? (' · ' + pack.site_name) : '');
+        var acceptAll = pending > 0
+            ? '<button type="button" class="btn btn-outline-success btn-sm accept-pack-all" data-pack-id="' +
+                escapeHtml(String(pack.pack_id || pack.id || '')) +
+                '" title="Accept all remaining articles in this pack (' + pending + ')" aria-label="Accept all remaining pack articles">' +
+                '<i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Accept all (' + pending + ')</button>'
+            : '';
+        return '<tr class="tasks-pack-header" data-pack-id="' + escapeHtml(String(pack.pack_id || pack.id || '')) + '">' +
+            '<td colspan="8" class="tasks-pack-header__cell">' +
+            '<div class="tasks-pack-header__inner">' +
+            '<div class="tasks-pack-header__title"><i class="fa-solid fa-layer-group me-2" aria-hidden="true"></i>' +
+            escapeHtml(label) + '</div>' +
+            '<div class="tasks-pack-header__actions">' + acceptAll + '</div>' +
+            '</div></td></tr>';
+    }
+
+    function renderTasksTable(orderItems, grouped) {
+        var flatItems = [];
+        if (Array.isArray(grouped) && grouped.length) {
+            grouped.forEach(function(entry) {
+                if (entry && entry.type === 'pack' && entry.pack && Array.isArray(entry.pack.items)) {
+                    entry.pack.items.forEach(function(item) { flatItems.push(item); });
+                } else if (entry && entry.type === 'item' && entry.item) {
+                    flatItems.push(entry.item);
+                } else if (entry && entry.order_id) {
+                    flatItems.push(entry);
+                }
+            });
+        } else {
+            flatItems = Array.isArray(orderItems) ? orderItems : [];
+        }
+        window._publisherTaskItems = flatItems;
+        if (!flatItems.length) {
             $('#tasksTableBody').html(
                 '<tr><td colspan="8" class="text-center py-5">' +
                 '<div class="mx-auto" style="max-width:420px">' +
@@ -1248,10 +1314,12 @@ $(document).ready(function() {
         
         var html = '';
         window._publisherTasksByOrderId = {};
-        orderItems.forEach(function(item) {
+
+        function appendTaskRow(item, nestClass) {
             if (item.order_id) {
                 window._publisherTasksByOrderId[String(item.order_id)] = item.id;
             }
+            var rowClass = 'tasks-row' + (nestClass ? (' ' + nestClass) : '');
             var orderStatus = item.order ? item.order.status : 'pending';
             var orderNumber = item.order ? item.order.order_number : 'N/A';
             var additionalPrice = parseFloat(item.additional_price || 0);
@@ -1372,7 +1440,7 @@ $(document).ready(function() {
             var siteUrl = item.site_url || '';
             var siteHost = tasksSiteHost(siteUrl);
             var nextStep = statusMeta.nextStep || '';
-            html += '<tr class="tasks-row">' +
+            html += '<tr class="' + rowClass + '">' +
                 '<td data-label="Order ID"><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
                 '<td data-label="Site"><div class="fw-semibold tasks-site-name">' + escapeHtml(item.site_name) + '</div>' +
                     (siteUrl
@@ -1383,12 +1451,35 @@ $(document).ready(function() {
                 '<td data-label="Sensitive">' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+' + taskMoney(additionalPrice) + ')</span>' : '<span class="text-muted tasks-sensitive-empty">None</span>') + '</td>' +
                 '<td data-label="You earn" class="fw-semibold total-price text-nowrap publisher-task-col-money" style="color: #10b981;">' + taskMoney(totalPrice) + homepageLine + '</td>' +
                 '<td data-label="Status"><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span>' +
+                    (item.pack && item.pack.position_label
+                        ? '<div class="mt-1"><span class="badge text-bg-light border text-muted">' + escapeHtml(item.pack.position_label) + '</span></div>'
+                        : '') +
                     (nextStep ? '<div class="next-step-hint" title="' + escapeHtml(nextStep) + '">' + escapeHtml(nextStep) + '</div>' : '') +
                 '</td>' +
                 '<td class="link-cell" data-label="Content">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary tasks-content-link" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
                 '<td data-label="Action" class="publisher-task-actions-col">' + actions + '</td>' +
                 '</tr>';
-        });
+        }
+
+        if (Array.isArray(grouped) && grouped.length) {
+            grouped.forEach(function(entry) {
+                if (entry && entry.type === 'pack' && entry.pack) {
+                    html += renderPackHeaderRow(entry.pack);
+                    (entry.pack.items || []).forEach(function(item) {
+                        appendTaskRow(item, 'tasks-row--pack-child');
+                    });
+                    return;
+                }
+                var item = (entry && entry.type === 'item' && entry.item) ? entry.item : entry;
+                if (item && item.id) {
+                    appendTaskRow(item, '');
+                }
+            });
+        } else {
+            flatItems.forEach(function(item) {
+                appendTaskRow(item, '');
+            });
+        }
         
         $('#tasksTableBody').html(html);
         

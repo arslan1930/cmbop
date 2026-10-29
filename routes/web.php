@@ -67,6 +67,7 @@ use App\Http\Controllers\Advertiser\SiteUrlConcealController;
 use App\Http\Controllers\Advertiser\SiteUrlRevealController;
 use App\Http\Controllers\Advertiser\SiteVisitController;
 use App\Http\Controllers\Advertiser\WebsiteSuggestionController;
+use App\Http\Controllers\Advertiser\OrderPackController;
 use App\Http\Controllers\AnnouncementClickController;
 use App\Http\Controllers\ApiDocs\AdvertiserApiDocsController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -1357,8 +1358,13 @@ $registerStaffOpsRoutes = function () {
     Route::post('/sites/{id}/unarchive', [AdminSiteController::class, 'unarchive'])
         ->name('sites.unarchive');
 
+    // Bulk site request queue: GET for all staff; POSTs registered for both
+    // panels so Blade staff_route() resolves, but the controller rejects
+    // non-admin mutations with 403 (marketing stays read-only).
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');
+    Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
+        ->name('bulk-site-requests.show');
     Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
         ->name('bulk-site-requests.bulk-claim');
     Route::post('/bulk-site-requests/bulk-assign', [AdminBulkSiteRequestController::class, 'bulkAssign'])
@@ -1367,8 +1373,6 @@ $registerStaffOpsRoutes = function () {
         ->name('bulk-site-requests.bulk-remind');
     Route::post('/bulk-site-requests/bulk-cancel', [AdminBulkSiteRequestController::class, 'bulkCancel'])
         ->name('bulk-site-requests.bulk-cancel');
-    Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
-        ->name('bulk-site-requests.show');
     Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
         ->name('bulk-site-requests.sheet-sent');
     Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
@@ -1816,6 +1820,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/orders/export', [AdminOrderController::class, 'export'])->name('orders.export');
         Route::get('/orders/items/{orderItem}/content', [AdminOrderController::class, 'downloadContent'])
             ->name('orders.content.download');
+        Route::post('/packs/{pack}/cancel-rest', [AdminOrderController::class, 'cancelPackRest'])
+            ->middleware('throttle:20,1')
+            ->name('packs.cancel-rest');
         Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
         Route::post('/orders/{id}/disputes', [AdminOrderDisputeController::class, 'open'])->name('orders.disputes.open');
@@ -2186,6 +2193,55 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::get('/orders/statistics', [CatalogController::class, 'getOrderStatistics'])->name('orders.statistics');
         Route::get('/orders/{id}', [CatalogController::class, 'getOrder'])->name('orders.get');
 
+        // Article packs (Buy 3–10 on one site)
+        Route::get('/packs/{pack}', [OrderPackController::class, 'show'])->name('packs.show');
+        Route::post('/packs/{pack}/cancel-rest', [OrderPackController::class, 'cancelRest'])
+            ->middleware('throttle:20,1')
+            ->name('packs.cancel-rest');
+        Route::get('/packs/{pack}/receipt', [OrderPackController::class, 'receipt'])->name('packs.receipt');
+
+        // Local/demo helper: seed a bulk pack cart line with a stale quoted price
+        // so checkout shows the pack price-change notice (screenshots / manual QA).
+        if (app()->environment(['local', 'testing'])) {
+            Route::get('/dev/seed-pack-price-change', function () {
+                $site = \App\Models\Site::query()
+                    ->where('domain', 'pack-demo.example')
+                    ->orWhere('bulk_discount_enabled', 1)
+                    ->orderByDesc('id')
+                    ->first();
+                if (! $site) {
+                    return redirect()->route('advertiser.catalog')
+                        ->with('error', 'No bulk-discount site available to seed.');
+                }
+                $svc = app(\App\Services\Orders\OrderPackService::class);
+                $line = [
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'url' => $site->site_url,
+                    'quantity' => 5,
+                    'bulk_pack' => true,
+                    'price' => 80.0,
+                    'list_total' => 100.0,
+                    'discount_percent' => 20,
+                    'quoted_unit_price' => 90.0,
+                    'quoted_list_total' => 100.0,
+                    'quoted_discount_percent' => 10,
+                    'quoted_pack_total' => 450.0,
+                    'quoted_at' => now()->subHour()->toIso8601String(),
+                    'sensitive_type' => null,
+                    'content_source' => 'buyer',
+                    'language' => $site->language,
+                    'languages' => $site->languageCodes(),
+                    'country' => $site->country,
+                    'countries' => $site->countryCodes(),
+                ];
+                $line = $svc->stampQuotedPrice($line);
+                session(['cart' => [$line]]);
+
+                return redirect()->route('advertiser.checkout');
+            })->name('dev.seed-pack-price-change');
+        }
+
         // Order actions
         Route::post('/orders/{id}/approve', [CatalogController::class, 'approveOrder'])->name('orders.approve');
         Route::post('/order-items/{orderItem}/approve-article', [AdvertiserArticleApprovalController::class, 'approve'])
@@ -2384,6 +2440,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::get('/orders/statistics', [OrderController::class, 'getStatistics'])->name('orders.statistics');
         Route::get('/orders/{id}/details', [OrderController::class, 'getOrderDetails'])->name('orders.details');
         Route::post('/orders/{id}/accept', [OrderController::class, 'acceptOrder'])->name('orders.accept');
+        Route::post('/orders/packs/{pack}/accept-all', [OrderController::class, 'acceptPack'])
+            ->middleware('throttle:20,1')
+            ->name('orders.packs.accept-all');
         Route::post('/orders/{id}/reject', [OrderController::class, 'rejectOrder'])->name('orders.reject');
         Route::post('/orders/{id}/request-content-revision', [OrderController::class, 'requestContentRevision'])
             ->middleware('throttle:20,1')

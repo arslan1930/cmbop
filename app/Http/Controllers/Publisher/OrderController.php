@@ -20,7 +20,9 @@ use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
 use App\Services\Marketplace\WritingFeeService;
+use App\Models\OrderPack;
 use App\Services\Orders\ContentRevisionService;
+use App\Services\Orders\OrderPackService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Orders\ReviewHandoffService;
 use App\Services\Partners\PartnerApiSerializer;
@@ -172,10 +174,56 @@ class OrderController extends Controller
                 $query->whereDate('created_at', '<=', $dateTo);
             }
 
-            $perPage = $request->get('per_page', 20);
-            $orderItems = $query->paginate($perPage);
+            $perPage = max(1, (int) $request->get('per_page', 20));
+            $page = max(1, (int) $request->get('page', 1));
+            $packService = app(OrderPackService::class);
+            $pageUnits = null;
+            $pageItems = collect();
+            $pagination = null;
 
-            $orderIds = collect($orderItems->items())->pluck('order_id')->unique()->values();
+            if ($packService->available()) {
+                $liteRows = (clone $query)->toBase()
+                    ->select('order_items.id', 'order_items.order_id')
+                    ->get();
+                $orderIdsForPack = $liteRows->pluck('order_id')->unique()->filter()->values()->all();
+                $packByOrderId = $orderIdsForPack === []
+                    ? collect()
+                    : Order::query()->whereIn('id', $orderIdsForPack)->pluck('order_pack_id', 'id');
+                $orderedRows = $liteRows->map(function ($row) use ($packByOrderId) {
+                    return (object) [
+                        'id' => (int) $row->id,
+                        'order_pack_id' => (int) ($packByOrderId[$row->order_id] ?? 0),
+                    ];
+                });
+                $units = $packService->collapseOrderedRowsToUnits($orderedRows);
+                $pageSlice = $packService->paginateUnits($units, $page, $perPage);
+                $pageUnits = $pageSlice['units'];
+                $pageIds = $pageSlice['ids'];
+                $pagination = $pageSlice['pagination'];
+
+                if ($pageIds !== []) {
+                    $loaded = OrderItem::with(['order.user', 'site', 'disputes'])
+                        ->whereIn('id', $pageIds)
+                        ->get()
+                        ->keyBy('id');
+                    $pageItems = collect($pageIds)
+                        ->map(fn ($id) => $loaded->get((int) $id))
+                        ->filter();
+                }
+            } else {
+                $paginator = $query->paginate($perPage);
+                $pageItems = collect($paginator->items());
+                $pagination = [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                ];
+            }
+
+            $orderIds = $pageItems->pluck('order_id')->unique()->values();
             $unreadByOrder = OrderChatMessage::whereIn('order_id', $orderIds)
                 ->where('sender_type', 'advertiser')
                 ->where('is_read', false)
@@ -203,9 +251,54 @@ class OrderController extends Controller
                 ->groupBy('order_id')
                 ->pluck('items_count', 'order_id');
 
+            $packBadgeByPackId = [];
+            if ($packService->available()) {
+                $packIds = $pageItems
+                    ->map(fn ($item) => (int) ($item->order?->order_pack_id ?? 0))
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values();
+                if ($packIds->isNotEmpty()) {
+                    $packs = OrderPack::query()->whereIn('id', $packIds)->get()->keyBy('id');
+                    $siblingIdsByPack = Order::query()
+                        ->whereIn('order_pack_id', $packIds)
+                        ->orderBy('id')
+                        ->get(['id', 'order_pack_id'])
+                        ->groupBy('order_pack_id')
+                        ->map(fn ($rows) => $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all());
+                    foreach ($packs as $packId => $pack) {
+                        $pendingCount = $packService->pendingAcceptItemsForPublisher($pack, (int) $userId)->count();
+                        $packBadgeByPackId[(int) $packId] = [
+                            'pack_id' => (int) $packId,
+                            'pack_size' => (int) $pack->pack_size,
+                            'pending_accept_count' => $pendingCount,
+                            'order_ids' => $siblingIdsByPack->get($packId, []),
+                        ];
+                    }
+                }
+            }
+
             // Transform data to include sensitive price info and auto-approve fields
             $transformedItems = [];
-            foreach ($orderItems->items() as $item) {
+            foreach ($pageItems as $item) {
+                $packMeta = null;
+                $packId = (int) ($item->order?->order_pack_id ?? 0);
+                if ($packId > 0 && isset($packBadgeByPackId[$packId])) {
+                    $badge = $packBadgeByPackId[$packId];
+                    $siblings = $badge['order_ids'];
+                    $index = array_search((int) $item->order_id, $siblings, true);
+                    $position = $index === false ? null : ($index + 1);
+                    $packMeta = [
+                        'pack_id' => $packId,
+                        'position' => $position,
+                        'position_label' => $position
+                            ? ('Pack '.$position.' of '.(int) $badge['pack_size'])
+                            : ('Pack of '.(int) $badge['pack_size']),
+                        'pack_size' => (int) $badge['pack_size'],
+                        'pending_accept_count' => (int) $badge['pending_accept_count'],
+                    ];
+                }
+
                 $transformedItems[] = [
                     'id' => $item->id,
                     'order_id' => $item->order_id,
@@ -242,6 +335,7 @@ class OrderController extends Controller
                     'unread_chat' => (int) ($unreadByOrder[$item->order_id] ?? 0),
                     'order_items_count' => (int) ($orderItemCountsByOrder[$item->order_id] ?? 1),
                     'created_at' => $item->created_at,
+                    'pack' => $packMeta,
                     'order' => [
                         'id' => $item->order->id,
                         'order_number' => $item->order->order_number,
@@ -249,6 +343,7 @@ class OrderController extends Controller
                         'payment_method' => $item->order->payment_method,
                         'payment_status' => $item->order->payment_status,
                         'reference_code' => $item->order->reference_code,
+                        'order_pack_id' => $packId > 0 ? $packId : null,
                         'has_open_content_revision' => $ordersWithOpenContentRevision->has($item->order_id),
                         'publication_mode' => $item->order->publication_mode,
                         'scheduled_publish_at' => optional($item->order->scheduled_publish_at)?->toIso8601String(),
@@ -263,17 +358,15 @@ class OrderController extends Controller
                 ];
             }
 
+            $grouped = is_array($pageUnits)
+                ? $packService->groupPublisherItemPayloads(collect($transformedItems), $pageUnits)
+                : null;
+
             return response()->json([
                 'success' => true,
                 'data' => $transformedItems,
-                'pagination' => [
-                    'current_page' => $orderItems->currentPage(),
-                    'last_page' => $orderItems->lastPage(),
-                    'per_page' => $orderItems->perPage(),
-                    'total' => $orderItems->total(),
-                    'from' => $orderItems->firstItem(),
-                    'to' => $orderItems->lastItem(),
-                ],
+                'grouped' => $grouped,
+                'pagination' => $pagination,
             ]);
 
         } catch (\Exception $e) {
@@ -442,27 +535,110 @@ class OrderController extends Controller
      */
     public function acceptOrder(Request $request, $id)
     {
+        try {
+            $orderItem = OrderItem::with('order')->findOrFail($id);
+            $result = $this->acceptOrderItemForPublisher($orderItem, (int) auth()->id());
+
+            return response()->json([
+                'success' => (bool) ($result['success'] ?? false),
+                'message' => $result['message'] ?? 'Failed to accept order.',
+            ], (int) ($result['status'] ?? (($result['success'] ?? false) ? 200 : 400)));
+        } catch (\Exception $e) {
+            Log::error('Error accepting order: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Failed to accept order. Please try again.'),
+            ], 500);
+        }
+    }
+
+    /**
+     * Accept every remaining pending article in a pack for this publisher.
+     */
+    public function acceptPack(Request $request, OrderPack $pack): \Illuminate\Http\JsonResponse
+    {
+        $userId = (int) auth()->id();
+        $packService = app(OrderPackService::class);
+
+        if (! $packService->available()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Article packs are not available.',
+            ], 404);
+        }
+
+        $ownsAny = $pack->orders()
+            ->whereHas('items', function ($q) use ($userId) {
+                $q->whereIn('site_id', Site::query()->where('publisher_id', $userId)->select('id'));
+            })
+            ->exists();
+
+        if (! $ownsAny) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: This pack does not include your sites.',
+            ], 403);
+        }
+
+        try {
+            $result = $packService->acceptAllPending(
+                $pack,
+                $request->user(),
+                function (OrderItem $item) use ($userId) {
+                    return $this->acceptOrderItemForPublisher($item, $userId);
+                }
+            );
+
+            $accepted = (int) ($result['accepted'] ?? 0);
+
+            return response()->json([
+                'success' => true,
+                'message' => $accepted > 0
+                    ? 'Accepted '.$accepted.' article'.($accepted === 1 ? '' : 's').' in this pack.'
+                    : 'No remaining articles needed acceptance.',
+                'result' => $result,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error accepting pack: '.$e->getMessage(), [
+                'order_pack_id' => $pack->id,
+                'publisher_id' => $userId,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Failed to accept pack articles. Please try again.'),
+            ], 500);
+        }
+    }
+
+    /**
+     * Shared accept path for a single order item (used by acceptOrder and acceptPack).
+     *
+     * @return array{success: bool, message: string, status?: int}
+     */
+    private function acceptOrderItemForPublisher(OrderItem $orderItem, int $userId): array
+    {
         $suppressor = app(OrderLifecycleMailSuppressor::class);
         $suppressedOrderId = null;
 
         try {
-            $orderItem = OrderItem::with('order')->findOrFail($id);
             if (PartnerSandbox::isSandboxItem($orderItem)) {
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'Sandbox orders must be managed with a test API key.',
-                ], 403);
+                    'status' => 403,
+                ];
             }
 
-            // Verify this order belongs to a site owned by the publisher
-            $userId = auth()->id();
             $site = Site::where('id', $orderItem->site_id)->where('publisher_id', $userId)->first();
 
             if (! $site) {
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'Unauthorized: This order does not belong to your site',
-                ], 403);
+                    'status' => 403,
+                ];
             }
 
             DB::beginTransaction();
@@ -473,55 +649,61 @@ class OrderController extends Controller
             if (! $order) {
                 DB::rollBack();
 
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'Order not found',
-                ], 404);
+                    'status' => 404,
+                ];
             }
 
             if ($order->payment_status !== 'paid') {
                 DB::rollBack();
 
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'Order payment is not confirmed yet',
-                ], 400);
+                    'status' => 400,
+                ];
             }
 
             if ($order->isAwaitingScheduledRelease()) {
                 DB::rollBack();
 
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'This order is scheduled for later. Accept it after the publication date.',
-                ], 422);
+                    'status' => 422,
+                ];
             }
 
             if ($order->status === 'cancelled' || $order->payment_status === 'refunded') {
                 DB::rollBack();
 
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'This order is no longer open.',
-                ], 422);
+                    'status' => 422,
+                ];
             }
 
             if (! in_array($order->status, ['pending', 'processing', 'review'], true)) {
                 DB::rollBack();
 
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'Only open orders can be accepted.',
-                ], 422);
+                    'status' => 422,
+                ];
             }
 
             if ($this->placementAlreadyAccepted($orderItem)) {
                 DB::rollBack();
 
-                return response()->json([
+                return [
                     'success' => false,
                     'message' => 'This placement was already accepted.',
-                ], 422);
+                    'status' => 422,
+                ];
             }
 
             // Dedicated OrderAccepted mail covers the advertiser — skip generic
@@ -545,10 +727,8 @@ class OrderController extends Controller
 
             DB::commit();
 
-            // Get the advertiser (user who placed the order)
             $advertiser = User::find($order->user_id);
 
-            // Send email notification to advertiser
             if ($advertiser && $advertiser->email) {
                 try {
                     Mail::to($advertiser->email)->send(new OrderAccepted($order, $orderItem, $site));
@@ -573,19 +753,20 @@ class OrderController extends Controller
                 'publisher_id' => $userId,
             ]);
 
-            return response()->json([
+            return [
                 'success' => true,
                 'message' => 'Order accepted successfully. Please submit the live URL when your content is ready.',
-            ]);
-
+                'status' => 200,
+            ];
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error accepting order: '.$e->getMessage());
+            Log::error('Error accepting order item: '.$e->getMessage());
 
-            return response()->json([
+            return [
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to accept order. Please try again.'),
-            ], 500);
+                'status' => 500,
+            ];
         } finally {
             if ($suppressedOrderId) {
                 $suppressor->forget($suppressedOrderId);
@@ -1067,6 +1248,21 @@ class OrderController extends Controller
                         'order_item_id' => $orderItem->id,
                     ]);
                 }
+            }
+
+            try {
+                $packService = app(OrderPackService::class);
+                if ($packService->available() && $order->order_pack_id) {
+                    $pack = $packService->findForOrder($order);
+                    if ($pack) {
+                        $packService->notifyProgress($pack, $order, 'published');
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Pack progress notification failed: '.$e->getMessage(), [
+                    'order_id' => $order->id,
+                    'order_pack_id' => $order->order_pack_id,
+                ]);
             }
 
             $this->emitAdvertiserOrderWebhook($orderItem->fresh(), 'order.published');

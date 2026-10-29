@@ -23,6 +23,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
 
     private User $marketer;
 
+    private User $admin;
+
     private User $publisher;
 
     protected function setUp(): void
@@ -41,6 +43,13 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
             'active_role_id' => $marketingRole->id,
         ]);
         $this->marketer->roles()->attach($marketingRole->id);
+
+        $adminRole = Role::where('name', 'admin')->firstOrFail();
+        $this->admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $this->admin->roles()->attach($adminRole->id);
 
         $this->publisher = User::factory()->create([
             'email_verified_at' => now(),
@@ -66,15 +75,21 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $category = Category::query()->first();
         $this->assertNotNull($category);
 
-        $html = $this->actingAs($this->marketer)
+        $this->actingAs($this->marketer)
             ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('View only — ask an admin to change status', false)
+            ->assertDontSee('id="bulkDoneForm"', false);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertSee('id="bulkDoneForm"', false)
             ->assertSee('data-bulk-reject-row', false)
             ->assertSee('name="rejection_note"', false)
             ->assertSee('bulk-done-table-wrap', false)
             ->assertSee('data-bulk-done-row', false)
-            ->assertSee('bulkDoneDraft:'.$bulk->id.':'.$this->marketer->id, false)
+            ->assertSee('bulkDoneDraft:'.$bulk->id.':'.$this->admin->id, false)
             ->assertSee('sessionStorage', false)
             ->assertSee('restoreDraftIfNeeded', false)
             ->assertSee('categoryWrapper-done'.$bulk->items()->first()->id, false)
@@ -204,24 +219,35 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
 
     public function test_bulk_notes_reject_non_string_payload(): void
     {
+        $readonly = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.notes', $readonly), [
+                'admin_notes' => 'Marketer cannot save notes',
+            ])
+            ->assertForbidden();
+
         $bulk = BulkSiteRequest::create([
             'publisher_id' => $this->publisher->id,
             'status' => BulkSiteRequest::STATUS_REQUESTED,
             'estimated_count' => 1,
         ]);
 
-        $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.notes', $bulk), [
                 'admin_notes' => ['injected'],
             ])
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHasErrors('admin_notes');
 
         $this->assertNull($bulk->fresh()->admin_notes);
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.notes', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.notes', $bulk), [
                 'admin_notes' => 'Keep this note',
             ])
             ->assertRedirect()
@@ -261,10 +287,10 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->insertDoneItem($bulk->id, 2, 'https://prefix.example', 'prefix.example', 50);
         $this->insertDoneItem($bulk->id, 21, 'https://long.example', 'long.example', 60);
 
-        $html = $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
+        $html = $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
             ->followingRedirects()
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     21 => [
                         'da' => 10,
@@ -307,10 +333,10 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         [$country, $language] = $this->marketplaceCodes();
         $category = Category::query()->firstOrFail();
 
-        $html = $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
+        $html = $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
             ->followingRedirects()
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     1 => [
                         'language' => $language,
@@ -349,10 +375,10 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
 
         [$country, $language] = $this->marketplaceCodes();
 
-        $html = $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
+        $html = $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
             ->followingRedirects()
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     11 => [
                         'language' => $language,

@@ -198,7 +198,32 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_marketer_done_adds_drafts_from_submitted_items_and_notifies_publisher(): void
+
+    public function test_marketer_cannot_post_bulk_done(): void
+    {
+        $marketingRole = Role::where('name', 'marketing')->firstOrFail();
+        $marketer = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $marketingRole->id,
+        ]);
+        $marketer->roles()->attach($marketingRole->id);
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+
+        $this->actingAs($marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk();
+
+        $this->actingAs($marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [])
+            ->assertForbidden();
+    }
+
+    public function test_admin_done_adds_drafts_from_submitted_items_and_notifies_publisher(): void
     {
         Mail::fake();
 
@@ -235,8 +260,8 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         ]);
         $marketer->roles()->attach($marketingRole->id);
 
-        $this->actingAs($marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemA->id => [
                         'language' => strtolower($language->code),
@@ -298,7 +323,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         Mail::assertQueued(BulkSitesSeededNotification::class);
     }
 
-    public function test_marketer_can_submit_one_complete_block_and_leave_others_pending(): void
+    public function test_admin_can_submit_one_complete_block_and_leave_others_pending(): void
     {
         Mail::fake();
         $country = Country::marketplace()->where('code', 'de')->first()
@@ -334,9 +359,9 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $category = Category::query()->where('name', 'Business & Finance')->first()
             ?? Category::query()->firstOrFail();
 
-        $this->actingAs($marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemA->id => [
                         'language' => strtolower($language->code),
@@ -349,7 +374,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
                     // itemB left empty for later
                 ],
             ])
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHas('success')
             ->assertSessionHas('success', fn ($msg) => str_contains((string) $msg, 'still pending'));
 
@@ -366,9 +391,9 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertSame(BulkSiteRequest::STATUS_SEEDED, $bulk->fresh()->status);
 
         // Niches required on a started block: metrics alone are not enough for Done.
-        $this->actingAs($marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemB->id => [
                         'language' => strtolower($language->code),
@@ -379,7 +404,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHasErrors('items.'.$itemB->id.'.categories')
             ->assertSessionHas('error');
 
@@ -387,6 +412,13 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $this->actingAs($marketer)
             ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('partial-b.example', false)
+            ->assertSee('View only — ask an admin to change status', false)
+            ->assertDontSee('name="items['.$itemB->id.'][language]"', false);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertSee('name="items['.$itemB->id.'][language]"', false)
             ->assertSee('name="items['.$itemB->id.'][da]"', false)
@@ -396,7 +428,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
             ->assertDontSee('name="items['.$itemA->id.'][language]"', false);
     }
 
-    public function test_marketer_done_rejects_partially_filled_block_even_with_another_complete(): void
+    public function test_admin_done_rejects_partially_filled_block_even_with_another_complete(): void
     {
         $country = Country::marketplace()->where('code', 'de')->first()
             ?? Country::marketplace()->firstOrFail();
@@ -431,9 +463,9 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $category = Category::query()->where('name', 'Business & Finance')->first()
             ?? Category::query()->firstOrFail();
 
-        $this->actingAs($marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemA->id => [
                         'language' => strtolower($language->code),
@@ -449,7 +481,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHasErrors()
             ->assertSessionHas('error');
 

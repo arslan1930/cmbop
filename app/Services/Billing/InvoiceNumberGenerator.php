@@ -79,7 +79,8 @@ class InvoiceNumberGenerator
         return match ($type) {
             Invoice::TYPE_DEPOSIT_RECEIPT => $this->nextReceipt($year),
             Invoice::TYPE_PAYMENT_RECEIPT,
-            Invoice::TYPE_PAYMENT_FAILURE => $this->nextPaymentReceipt($year),
+            Invoice::TYPE_PAYMENT_FAILURE,
+            Invoice::TYPE_PACK_RECEIPT => $this->nextPaymentReceipt($year),
             Invoice::TYPE_REFUND_RECEIPT => $this->nextCreditNote($year),
             Invoice::TYPE_WITHDRAWAL_PAYOUT => $this->nextPayoutStatement($year),
             default => $this->next($year),

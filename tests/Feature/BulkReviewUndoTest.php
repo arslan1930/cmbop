@@ -69,13 +69,14 @@ class BulkReviewUndoTest extends TestCase
     }
 
     /**
+     * Mutation actors — undo/publish-now are admin-only.
+     *
      * @return list<array{0:string,1:User}>
      */
     private function staffActors(): array
     {
         return [
             ['admin', $this->admin],
-            ['marketing', $this->marketer],
         ];
     }
 
@@ -142,7 +143,30 @@ class BulkReviewUndoTest extends TestCase
         return Site::query()->where('domain', $item->domain)->firstOrFail();
     }
 
-    public function test_undo_review_then_publish_now_for_admin_and_marketer(): void
+    public function test_marketer_cannot_undo_or_publish_now(): void
+    {
+        [$bulk, $item] = $this->makePendingBulk('mkt-undo-forbid');
+        $site = $this->sendForReview($this->admin, 'admin', $bulk, $item);
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.undo-review', $bulk))
+            ->assertForbidden();
+
+        $this->assertTrue($site->fresh()->isBulkReviewUndoable());
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.undo-review', $bulk))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.publish-now', $bulk))
+            ->assertForbidden();
+
+        $this->assertFalse((bool) $site->fresh()->active);
+    }
+
+    public function test_undo_review_then_publish_now_for_admin(): void
     {
         foreach ($this->staffActors() as [$prefix, $user]) {
             Mail::fake();

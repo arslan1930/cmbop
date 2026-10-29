@@ -1837,6 +1837,82 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     }
 }
 
+/* Article pack cards (Buy 3–10) — grey expandable groups */
+.orders-pack-card > .orders-pack-card__cell {
+    padding: .65rem .75rem !important;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+}
+.orders-pack-card__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .65rem .85rem;
+}
+.orders-pack-card__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    flex: 1 1 14rem;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    padding: .15rem 0;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+}
+.orders-pack-card__toggle:focus-visible {
+    outline: 2px solid var(--brand-primary, #1a585e);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+.orders-pack-card__chevron {
+    display: inline-flex;
+    width: 1.1rem;
+    color: #64748b;
+    transition: transform .18s ease;
+}
+.orders-pack-card.is-expanded .orders-pack-card__chevron {
+    transform: rotate(90deg);
+}
+.orders-pack-card__title {
+    font-weight: 600;
+    color: #334155;
+    font-size: .95rem;
+    line-height: 1.35;
+}
+.orders-pack-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    align-items: center;
+}
+.orders-pack-card__body {
+    margin-top: .65rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.orders-pack-children {
+    margin: 0;
+}
+.orders-pack-children .orders-pack-child td {
+    background: #fff;
+}
+.orders-pack-pos {
+    margin-top: .15rem;
+}
+.ov-pack-membership a {
+    font-weight: 600;
+    text-decoration: none;
+}
+.ov-pack-membership a:hover {
+    text-decoration: underline;
+}
+
 @media (prefers-reduced-motion: reduce) {
     #orderDetailsModal.modal.fade .modal-dialog,
     .order-view-shell:not(.ov-skeleton),
@@ -1853,9 +1929,13 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     .ov-file-chip,
     .ov-live-btn,
     #orderDetailsFooter .btn,
-    .order-inline-thread__send {
+    .order-inline-thread__send,
+    .orders-pack-card__chevron {
         animation: none !important;
         transition: none !important;
+        transform: none !important;
+    }
+    .orders-pack-card.is-expanded .orders-pack-card__chevron {
         transform: none !important;
     }
     .ov-policy__full.is-expanded {

@@ -1171,7 +1171,8 @@ function bootAdvertiserOrdersPage() {
         .then(({ ok, data }) => {
             if (localController && ordersFetchController !== localController) return;
             if (ok && data.success) {
-                renderOrders(data.orders, data.pagination);
+                const list = Array.isArray(data.grouped) ? data.grouped : null;
+                renderOrders(list || data.orders, data.pagination, { grouped: !!list });
                 updateNeedsActionBanner(data.needs_action || 0);
                 setOrdersSearchStatus(data.pagination && data.pagination.total
                     ? `${data.pagination.total} order${data.pagination.total === 1 ? '' : 's'} found`
@@ -1817,7 +1818,126 @@ function bootAdvertiserOrdersPage() {
                         </div>`;
     }
 
-    function renderOrders(orders, pagination) {
+    function ordersPackUrl(packId, suffix) {
+        const base = String(ordersRoute('packsBase', '') || '/advertiser/packs').replace(/\/$/, '');
+        return base + '/' + encodeURIComponent(String(packId)) + (suffix || '');
+    }
+
+    function renderSingleOrderRow(order, opts) {
+        opts = opts || {};
+        const statusMeta = getAdvertiserStatusMeta(order);
+        const items = Array.isArray(order.items) ? order.items : [];
+        const firstItem = items[0] || null;
+        const siteUrl = firstItem ? firstItem.site_url : '';
+        const siteHref = (firstItem && firstItem.visit_url) ? firstItem.visit_url : siteUrl;
+        const siteHost = ordersSiteHost(siteUrl);
+        const siteName = siteHost
+            || (firstItem ? (firstItem.site_name || firstItem.site_url || 'Placement details') : 'Placement details');
+        const itemsCount = Number(order.items_count) || items.length || 0;
+        const moreCount = Math.max(0, itemsCount - 1);
+        const totalLabel = formatEuro(order.total_amount);
+
+        const paymentMethodName = getPaymentMethodName(order.payment_method);
+        const paymentStatusClass = getPaymentStatusClass(order.payment_status);
+        const siteUrlHtml = siteUrl
+            ? `<a class="orders-site-url" href="${safeUrl(siteHref)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(siteUrl)}">${escapeHtml(siteHost || siteUrl)}</a>`
+            : '';
+        const siteNames = items.map((it) => it && it.site_name).filter(Boolean);
+        const moreTitle = siteNames.length ? escapeHtml(siteNames.join(', ')) : '';
+        const moreHtml = moreCount > 0
+            ? `<button type="button" class="btn btn-link btn-sm p-0 orders-more-sites" onclick="viewOrder(${order.id})" title="${moreTitle}">+${moreCount} more</button>`
+            : '';
+        const disputeHtml = order.dispute_status
+            ? `<div class="mt-1"><span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span></div>`
+            : '';
+        const projectHtml = order.project_name
+            ? `<div class="small text-muted">${escapeHtml(order.project_name)}</div>`
+            : '';
+        const packPos = order.pack && order.pack.position_label
+            ? `<div class="small text-muted orders-pack-pos">${escapeHtml(order.pack.position_label)}</div>`
+            : '';
+        const totalHtml = orderPaymentRefunded(order)
+            ? `<td data-label="Total" class="fw-semibold orders-col-total orders-total--refunded"><s>${totalLabel}</s> <span class="small">Refunded</span></td>`
+            : `<td data-label="Total" class="fw-semibold text-primary orders-col-total">${totalLabel}</td>`;
+        const statusHint = [statusMeta.next, statusMeta.autoHint].filter(Boolean).join(' — ');
+        const rowClass = opts.nested ? 'orders-row orders-pack-child' : 'orders-row';
+
+        return `
+                <tr class="${rowClass}">
+                    <td data-label="Order #" class="orders-col-id">
+                        <button type="button" class="btn btn-link p-0 fw-semibold orders-order-number" onclick="viewOrder(${order.id})">${escapeHtml(order.order_number)}</button>
+                        ${projectHtml}
+                        ${packPos}
+                    </td>
+                    <td data-label="Site" class="orders-col-site">
+                        <div class="fw-semibold orders-site-name" title="${escapeHtml(siteName)}">${escapeHtml(siteName)}</div>
+                        ${firstItem && firstItem.site_name && firstItem.site_name !== siteName
+                            ? `<div class="small text-muted">${escapeHtml(firstItem.site_name)}</div>`
+                            : ''}
+                        ${siteUrlHtml}
+                        ${moreHtml}
+                    </td>
+                    <td data-label="Date" class="orders-col-date">${formatDate(order.created_at)}</td>
+                    ${totalHtml}
+                    <td data-label="Payment" class="orders-col-payment">
+                        <div class="orders-pay-method">${escapeHtml(paymentMethodName)}</div>
+                        <span class="status-badge ${paymentStatusClass}">${capitalize(order.payment_status)}</span>
+                    </td>
+                    <td data-label="Status" class="orders-col-status">
+                        <span class="status-badge ${statusMeta.cls}" title="${escapeHtml(statusHint || statusMeta.label)}">${escapeHtml(statusMeta.label)}</span>
+                        <div class="next-step-hint" title="${escapeHtml(statusHint)}">${escapeHtml(statusMeta.next)}</div>
+                        ${disputeHtml}
+                    </td>
+                    <td data-label="Actions" class="orders-col-actions">
+                        ${renderOrderRowActions(order)}
+                    </td>
+                </tr>
+            `;
+    }
+
+    function renderPackCardRow(pack, expandByDefault) {
+        const packId = pack.id;
+        const siteLabel = pack.site_name || pack.site_url || 'Site';
+        const progress = pack.progress_label
+            || (`${pack.published_count || 0} of ${pack.pack_size || 0} published`);
+        const title = `${pack.label || ('Pack of ' + (pack.pack_size || ''))} · ${siteLabel} · ${progress}`;
+        const statusLabel = pack.status_label || capitalize(pack.status || 'in_progress');
+        const children = Array.isArray(pack.orders) ? pack.orders : [];
+        const expanded = !!expandByDefault;
+        const cancelBtn = pack.can_cancel_rest
+            ? `<button type="button" class="btn btn-sm btn-outline-danger orders-pack-cancel-rest" data-pack-id="${packId}">Cancel rest</button>`
+            : '';
+        const receiptHref = pack.receipt_url
+            ? safeUrl(pack.receipt_url)
+            : safeUrl(ordersPackUrl(packId, '/receipt'));
+        const childRows = children.map((order) => renderSingleOrderRow(order, { nested: true })).join('');
+
+        return `
+            <tr class="orders-pack-card ${expanded ? 'is-expanded' : ''}" data-pack-id="${packId}">
+                <td colspan="7" class="orders-pack-card__cell">
+                    <div class="orders-pack-card__inner">
+                        <button type="button" class="orders-pack-card__toggle" aria-expanded="${expanded ? 'true' : 'false'}" data-pack-toggle="${packId}">
+                            <span class="orders-pack-card__chevron" aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+                            <span class="orders-pack-card__title">${escapeHtml(title)}</span>
+                            <span class="status-badge status-processing">${escapeHtml(statusLabel)}</span>
+                        </button>
+                        <div class="orders-pack-card__actions">
+                            ${cancelBtn}
+                            <a class="btn btn-sm btn-outline-secondary" href="${receiptHref}">Receipt</a>
+                        </div>
+                    </div>
+                    <div class="orders-pack-card__body" ${expanded ? '' : 'hidden'}>
+                        <table class="table table-sm mb-0 orders-pack-children">
+                            <tbody>${childRows}</tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderOrders(orders, pagination, options) {
+        options = options || {};
         if (!orders || orders.length === 0) {
             const filtered = ordersHaveActiveFilters();
             document.getElementById('ordersTableBody').innerHTML = filtered ? `
@@ -1869,76 +1989,106 @@ function bootAdvertiserOrdersPage() {
             return;
         }
 
+        const focusPackId = (() => {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const raw = params.get('pack');
+                return raw ? parseInt(raw, 10) : 0;
+            } catch (e) {
+                return 0;
+            }
+        })();
+
         let html = '';
-        orders.forEach(order => {
-            const statusMeta = getAdvertiserStatusMeta(order);
-            const items = Array.isArray(order.items) ? order.items : [];
-            const firstItem = items[0] || null;
-            const siteUrl = firstItem ? firstItem.site_url : '';
-            const siteHref = (firstItem && firstItem.visit_url) ? firstItem.visit_url : siteUrl;
-            const siteHost = ordersSiteHost(siteUrl);
-            const siteName = siteHost
-                || (firstItem ? (firstItem.site_name || firstItem.site_url || 'Placement details') : 'Placement details');
-            const itemsCount = Number(order.items_count) || items.length || 0;
-            const moreCount = Math.max(0, itemsCount - 1);
-            const totalLabel = formatEuro(order.total_amount);
-            
-            const paymentMethodName = getPaymentMethodName(order.payment_method);
-            const paymentStatusClass = getPaymentStatusClass(order.payment_status);
-            const siteUrlHtml = siteUrl
-                ? `<a class="orders-site-url" href="${safeUrl(siteHref)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(siteUrl)}">${escapeHtml(siteHost || siteUrl)}</a>`
-                : '';
-            const siteNames = items.map((it) => it && it.site_name).filter(Boolean);
-            const moreTitle = siteNames.length ? escapeHtml(siteNames.join(', ')) : '';
-            const moreHtml = moreCount > 0
-                ? `<button type="button" class="btn btn-link btn-sm p-0 orders-more-sites" onclick="viewOrder(${order.id})" title="${moreTitle}">+${moreCount} more</button>`
-                : '';
-            const disputeHtml = order.dispute_status
-                ? `<div class="mt-1"><span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span></div>`
-                : '';
-            const projectHtml = order.project_name
-                ? `<div class="small text-muted">${escapeHtml(order.project_name)}</div>`
-                : '';
-            const totalHtml = orderPaymentRefunded(order)
-                ? `<td data-label="Total" class="fw-semibold orders-col-total orders-total--refunded"><s>${totalLabel}</s> <span class="small">Refunded</span></td>`
-                : `<td data-label="Total" class="fw-semibold text-primary orders-col-total">${totalLabel}</td>`;
-            const statusHint = [statusMeta.next, statusMeta.autoHint].filter(Boolean).join(' — ');
-            
-            html += `
-                <tr class="orders-row">
-                    <td data-label="Order #" class="orders-col-id">
-                        <button type="button" class="btn btn-link p-0 fw-semibold orders-order-number" onclick="viewOrder(${order.id})">${escapeHtml(order.order_number)}</button>
-                        ${projectHtml}
-                    </td>
-                    <td data-label="Site" class="orders-col-site">
-                        <div class="fw-semibold orders-site-name" title="${escapeHtml(siteName)}">${escapeHtml(siteName)}</div>
-                        ${firstItem && firstItem.site_name && firstItem.site_name !== siteName
-                            ? `<div class="small text-muted">${escapeHtml(firstItem.site_name)}</div>`
-                            : ''}
-                        ${siteUrlHtml}
-                        ${moreHtml}
-                    </td>
-                    <td data-label="Date" class="orders-col-date">${formatDate(order.created_at)}</td>
-                    ${totalHtml}
-                    <td data-label="Payment" class="orders-col-payment">
-                        <div class="orders-pay-method">${escapeHtml(paymentMethodName)}</div>
-                        <span class="status-badge ${paymentStatusClass}">${capitalize(order.payment_status)}</span>
-                    </td>
-                    <td data-label="Status" class="orders-col-status">
-                        <span class="status-badge ${statusMeta.cls}" title="${escapeHtml(statusHint || statusMeta.label)}">${escapeHtml(statusMeta.label)}</span>
-                        <div class="next-step-hint" title="${escapeHtml(statusHint)}">${escapeHtml(statusMeta.next)}</div>
-                        ${disputeHtml}
-                    </td>
-                    <td data-label="Actions" class="orders-col-actions">
-                        ${renderOrderRowActions(order)}
-                    </td>
-                </tr>
-            `;
-        });
+        if (options.grouped) {
+            orders.forEach((entry) => {
+                if (entry && entry.type === 'pack' && entry.pack) {
+                    html += renderPackCardRow(entry.pack, focusPackId && Number(entry.pack.id) === focusPackId);
+                    return;
+                }
+                const order = (entry && entry.type === 'order' && entry.order) ? entry.order : entry;
+                if (order && order.id) {
+                    html += renderSingleOrderRow(order);
+                }
+            });
+        } else {
+            orders.forEach((order) => {
+                html += renderSingleOrderRow(order);
+            });
+        }
         document.getElementById('ordersTableBody').innerHTML = html;
+        bindOrdersPackCardEvents();
         updateResultsCount(pagination);
         renderPagination(pagination);
     }
+
+    function bindOrdersPackCardEvents() {
+        document.querySelectorAll('[data-pack-toggle]').forEach((btn) => {
+            btn.addEventListener('click', function () {
+                const packId = this.getAttribute('data-pack-toggle');
+                const card = document.querySelector(`.orders-pack-card[data-pack-id="${packId}"]`);
+                if (!card) return;
+                const body = card.querySelector('.orders-pack-card__body');
+                const expanded = card.classList.toggle('is-expanded');
+                this.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                if (body) {
+                    if (expanded) body.removeAttribute('hidden');
+                    else body.setAttribute('hidden', '');
+                }
+            });
+        });
+        document.querySelectorAll('.orders-pack-cancel-rest').forEach((btn) => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const packId = this.getAttribute('data-pack-id');
+                if (packId) cancelPackRest(packId);
+            });
+        });
+    }
+
+    window.cancelPackRest = function (packId) {
+        const csrf = ordersCsrf();
+        Swal.fire({
+            title: 'Cancel remaining articles?',
+            text: 'Unaccepted articles in this pack will be cancelled and refunded at the price you paid.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, cancel rest',
+            cancelButtonText: 'Keep pack',
+        }).then((result) => {
+            if (!(result && (result.isConfirmed || result.value === true))) return;
+            Swal.fire({
+                title: 'Cancelling…',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading(),
+            });
+            fetch(ordersPackUrl(packId, '/cancel-rest'), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ _token: csrf }),
+            })
+                .then((response) => response.json().catch(() => ({})).then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        Swal.fire('Done', data.message || 'Remaining articles cancelled.', 'success');
+                        fetchOrders(currentPage, { historyMode: 'replace' });
+                        return;
+                    }
+                    Swal.fire('Error', (data && data.message) || 'Could not cancel the rest of this pack.', 'error');
+                })
+                .catch(() => {
+                    Swal.fire('Error', 'Could not cancel the rest of this pack.', 'error');
+                });
+        });
+    };
     
     // Approve order function
     window.approveOrder = function(orderId) {
@@ -2869,6 +3019,22 @@ function bootAdvertiserOrdersPage() {
                     ? `<span class="status-badge ${getPaymentStatusClass(order.payment_status)} ov-summary__pay">${capitalize(order.payment_status)}</span>`
                     : ''));
 
+        const packInfo = order.pack || null;
+        const packOrdersHref = packInfo
+            ? (packInfo.orders_url
+                ? safeUrl(packInfo.orders_url)
+                : safeUrl((ordersRoute('ordersBase', '') || '/advertiser/orders').replace(/\/$/, '') + '?pack=' + encodeURIComponent(String(packInfo.id))))
+            : '';
+        const packMembershipHtml = packInfo
+            ? `<div class="ov-row ov-pack-membership">
+                    <strong>Pack</strong>
+                    <span>
+                        <a href="${packOrdersHref}">${escapeHtml(packInfo.label || ('Pack of ' + (packInfo.pack_size || '')))}</a>
+                        ${packInfo.position_label ? ` · ${escapeHtml(packInfo.position_label)}` : ''}
+                    </span>
+               </div>`
+            : '';
+
         const html = `
             <div class="order-view-shell order-view-shell--stack">
                 <div class="ov-summary" role="group" aria-label="Order summary">
@@ -2891,6 +3057,7 @@ function bootAdvertiserOrdersPage() {
                     <div class="order-view-col order-view-col--main">
                         <div class="order-view-panel">
                             <h6>Order details</h6>
+                            ${packMembershipHtml}
                             ${itemsCount > 1 ? `<div class="ov-row"><strong>Items</strong><span>${itemsCount}</span></div>` : ''}
                             <div class="ov-price-block ov-price-block--flush">
                                 ${pricingRows}

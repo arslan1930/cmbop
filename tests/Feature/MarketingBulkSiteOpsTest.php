@@ -141,7 +141,29 @@ class MarketingBulkSiteOpsTest extends TestCase
         return $site->fresh();
     }
 
-    public function test_marketer_can_seed_and_history_is_logged(): void
+
+    public function test_marketer_bulk_site_requests_are_read_only(): void
+    {
+        $bulk = $this->makeBulkRequest();
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index'))
+            ->assertOk();
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('View only — ask an admin to change status', false)
+            ->assertDontSee('id="bulkDoneForm"', false);
+
+        foreach (['seed', 'done', 'notes', 'claim', 'sheet-sent', 'cancel', 'draft', 'undo-review', 'publish-now'] as $action) {
+            $this->actingAs($this->marketer)
+                ->post(route('marketing.bulk-site-requests.'.$action, $bulk), [])
+                ->assertForbidden();
+        }
+    }
+
+    public function test_admin_can_seed_and_history_is_logged(): void
     {
         Mail::fake();
         [$country, $language] = $this->marketplaceCodes();
@@ -150,8 +172,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $niche = Category::query()->firstOrFail()->name;
         $rows = "https://seed-mkt.example,99,40,45,12000,{$language},{$country},Seed Mkt,https://seed-mkt.example/sample,3days,permanent,dofollow,as_you_prefer,{$niche},Guest posts on this website stay published and the link remains dofollow for advertisers.";
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.seed', $bulk), ['rows' => $rows])
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.seed', $bulk), ['rows' => $rows])
             ->assertRedirect()
             ->assertSessionHas('error', 'All rows failed validation.');
 
@@ -175,20 +197,21 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Append-only', $html);
-        $this->assertStringContainsString('Done — publish now, or send to the publisher for review', $html);
+        $this->assertStringContainsString('Pending websites', $html);
+        $this->assertStringContainsString('View only — ask an admin to change status', $html);
     }
 
-    public function test_marketer_seed_rejects_price_that_would_overflow_decimal(): void
+    public function test_admin_seed_rejects_price_that_would_overflow_decimal(): void
     {
         [$country, $language] = $this->marketplaceCodes();
         $bulk = $this->makeBulkRequest();
 
         $rows = "https://overflow-seed.example,100000000000,40,45,12000,{$language},{$country},Overflow Seed";
 
-        $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.seed', $bulk), ['rows' => $rows])
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.seed', $bulk), ['rows' => $rows])
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHas('error', 'All rows failed validation.')
             ->assertSessionHas('seed_failures');
 
@@ -199,7 +222,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertNull(Site::where('domain', 'overflow-seed.example')->first());
     }
 
-    public function test_marketer_done_rejects_da_or_dr_above_100(): void
+    public function test_admin_done_rejects_da_or_dr_above_100(): void
     {
         [$country, $language] = $this->marketplaceCodes();
 
@@ -216,9 +239,9 @@ class MarketingBulkSiteOpsTest extends TestCase
         ]);
         $category = Category::query()->firstOrFail();
 
-        $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $item->id => [
                         'language' => $language,
@@ -230,7 +253,7 @@ class MarketingBulkSiteOpsTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHasErrors('items.'.$item->id.'.da');
 
         $this->assertDatabaseMissing('sites', ['domain' => 'mkt-da-cap.example']);
@@ -252,7 +275,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         );
     }
 
-    public function test_marketer_done_accepts_billion_scale_traffic(): void
+    public function test_admin_done_accepts_billion_scale_traffic(): void
     {
         Mail::fake();
         [$country, $language] = $this->marketplaceCodes();
@@ -270,8 +293,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         ]);
         $category = Category::query()->firstOrFail();
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $item->id => [
                         'language' => $language,
@@ -292,7 +315,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         ]);
     }
 
-    public function test_marketer_can_done_one_block_at_a_time(): void
+    public function test_admin_can_done_one_block_at_a_time(): void
     {
         Mail::fake();
         [$country, $language] = $this->marketplaceCodes();
@@ -316,8 +339,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         ]);
         $category = Category::query()->firstOrFail();
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemA->id => [
                         'language' => $language,
@@ -336,8 +359,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertDatabaseMissing('sites', ['domain' => 'mkt-block-b.example']);
         $this->assertNull($itemB->fresh()->site_id);
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemB->id => [
                         'language' => $language,
@@ -412,8 +435,14 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertTrue($bulk->fresh()->canAddDraftSites());
         $this->assertFalse($bulk->fresh()->isOpen());
 
-        $html = $this->actingAs($this->marketer)
+        $this->actingAs($this->marketer)
             ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('done-stuck-pending.example', false)
+            ->assertDontSee('id="bulkDoneSubmit"', false);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertSee('id="bulkDoneSubmit"', false)
             ->assertSee('data-open="1"', false)
@@ -423,8 +452,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         // Opening the page heals completed → seeded when pending rows remain.
         $this->assertSame(BulkSiteRequest::STATUS_SEEDED, $bulk->fresh()->status);
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $pending->id => [
                         'language' => $language,
@@ -446,7 +475,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertNotNull($pending->fresh()->site_id);
     }
 
-    public function test_marketer_can_done_full_200_site_batch_matching_publisher_limit(): void
+    public function test_admin_can_done_full_200_site_batch_matching_publisher_limit(): void
     {
         Mail::fake();
         [$country, $language] = $this->marketplaceCodes();
@@ -491,8 +520,8 @@ class MarketingBulkSiteOpsTest extends TestCase
             ];
         }
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => $payload,
             ])
             ->assertRedirect()
@@ -530,6 +559,12 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->postJson(route('marketing.bulk-site-requests.done', $bulk), [
                 'items' => $items,
             ])
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.bulk-site-requests.done', $bulk), [
+                'items' => $items,
+            ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('items');
     }
@@ -545,7 +580,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringContainsString('-site batch limit', $html);
     }
 
-    public function test_marketer_done_from_items_creates_drafts_and_notifies(): void
+    public function test_admin_done_from_items_creates_drafts_and_notifies(): void
     {
         Mail::fake();
         [$country, $language] = $this->marketplaceCodes();
@@ -571,8 +606,8 @@ class MarketingBulkSiteOpsTest extends TestCase
         $category = Category::query()->where('name', 'Business & Finance')->first()
             ?? Category::query()->firstOrFail();
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
                 'items' => [
                     $itemA->id => [
                         'language' => $language,
@@ -615,7 +650,7 @@ class MarketingBulkSiteOpsTest extends TestCase
 
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'bulk_request.done',
-            'user_id' => $this->marketer->id,
+            'user_id' => $this->admin->id,
         ]);
         $this->assertDatabaseMissing('activity_logs', [
             'action' => 'bulk_request.seeded',
@@ -631,7 +666,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertStringNotContainsString('>bulk_request.done<', $html);
     }
 
-    public function test_marketer_can_delete_awaiting_details_draft_and_history_remains(): void
+    public function test_admin_can_delete_awaiting_details_draft_and_history_remains(): void
     {
         $bulk = $this->makeBulkRequest();
         $site = $this->seedDraft($bulk, 'oops-wrong.example');
@@ -685,7 +720,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         );
     }
 
-    public function test_marketer_can_delete_ready_for_review_pending_site(): void
+    public function test_admin_can_delete_ready_for_review_pending_site(): void
     {
         $bulk = $this->makeBulkRequest();
         $site = $this->seedDraft($bulk, 'pending-ready.example');
@@ -705,7 +740,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertDatabaseMissing('sites', ['id' => $site->id]);
     }
 
-    public function test_marketer_delete_requires_reject_reason(): void
+    public function test_admin_delete_requires_reject_reason(): void
     {
         $bulk = $this->makeBulkRequest();
         $site = $this->seedDraft($bulk, 'needs-reason.example');
@@ -725,7 +760,7 @@ class MarketingBulkSiteOpsTest extends TestCase
         $this->assertDatabaseHas('sites', ['id' => $site->id]);
     }
 
-    public function test_marketer_cannot_delete_verified_or_active_site(): void
+    public function test_admin_cannot_delete_verified_or_active_site(): void
     {
         $bulk = $this->makeBulkRequest();
         $verified = $this->seedDraft($bulk, 'verified-live.example');
@@ -770,30 +805,30 @@ class MarketingBulkSiteOpsTest extends TestCase
         $bulk = $this->makeBulkRequest();
         $bulk->update(['status' => BulkSiteRequest::STATUS_REQUESTED, 'sheet_sent_at' => null]);
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.sheet-sent', $bulk))
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.sheet-sent', $bulk))
             ->assertRedirect();
 
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'bulk_request.sheet_sent',
-            'user_id' => $this->marketer->id,
+            'user_id' => $this->admin->id,
         ]);
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.sheet-sent', $bulk))
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.sheet-sent', $bulk))
             ->assertRedirect();
 
         $this->assertSame(1, ActivityLog::query()->where('action', 'bulk_request.sheet_sent')->count());
 
-        $this->actingAs($this->marketer)
-            ->post(route('marketing.bulk-site-requests.cancel', $bulk), [
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.cancel', $bulk), [
                 'reason' => 'Publisher sent a duplicate batch by mistake.',
             ])
-            ->assertRedirect(route('marketing.bulk-site-requests.index'));
+            ->assertRedirect(route('admin.bulk-site-requests.index'));
 
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'bulk_request.cancelled',
-            'user_id' => $this->marketer->id,
+            'user_id' => $this->admin->id,
         ]);
         $this->assertSame(BulkSiteRequest::STATUS_CANCELLED, $bulk->fresh()->status);
     }
@@ -806,17 +841,17 @@ class MarketingBulkSiteOpsTest extends TestCase
 
         $this->assertFalse($bulk->fresh()->canMarkSheetSent());
 
-        $html = $this->actingAs($this->marketer)
-            ->get(route('marketing.bulk-site-requests.show', $bulk))
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->getContent();
 
         $this->assertStringNotContainsString('Mark sheet emailed (optional)', $html);
 
-        $this->actingAs($this->marketer)
-            ->from(route('marketing.bulk-site-requests.show', $bulk))
-            ->post(route('marketing.bulk-site-requests.sheet-sent', $bulk))
-            ->assertRedirect(route('marketing.bulk-site-requests.show', $bulk))
+        $this->actingAs($this->admin)
+            ->from(route('admin.bulk-site-requests.show', $bulk))
+            ->post(route('admin.bulk-site-requests.sheet-sent', $bulk))
+            ->assertRedirect(route('admin.bulk-site-requests.show', $bulk))
             ->assertSessionHas('error', 'Sheet emailed can only be marked before drafts are added.');
 
         $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);

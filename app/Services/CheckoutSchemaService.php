@@ -25,6 +25,7 @@ class CheckoutSchemaService
         $this->ensureCheckoutIntentsTable();
         $this->ensurePaypalWebhookLogsTable();
         $this->ensureDepositPaypalColumns();
+        $this->ensureOrderPacks();
     }
 
     /**
@@ -70,6 +71,8 @@ class CheckoutSchemaService
 
         $this->addColumn('orders', 'stripe_session_id', 'varchar(255) NULL');
         $this->addColumn('orders', 'checkout_line_key', 'varchar(96) NULL');
+        $this->addColumn('orders', 'order_pack_id', 'bigint unsigned NULL');
+        $this->addIndexIfMissing('orders', 'order_pack_id');
         $this->addColumn('orders', 'stripe_payment_intent_id', 'varchar(255) NULL');
         $this->addColumn('orders', 'publication_mode', "varchar(20) NOT NULL DEFAULT 'immediate'");
         $this->addColumn('orders', 'scheduled_publish_at', 'timestamp NULL');
@@ -223,6 +226,52 @@ class CheckoutSchemaService
         $this->addNullableJsonColumn('deposit_requests', 'paypal_response');
         $this->addIndexIfMissing('deposit_requests', 'paypal_order_id');
         $this->addUniqueIfMissing('deposit_requests', 'paypal_capture_id');
+    }
+
+    /**
+     * Article pack parent rows + nullable FK on orders/invoices.
+     */
+    private function ensureOrderPacks(): void
+    {
+        if (! $this->tableExists('order_packs')) {
+            try {
+                Schema::create('order_packs', function (Blueprint $table) {
+                    $table->id();
+                    $table->unsignedBigInteger('user_id');
+                    $table->unsignedBigInteger('site_id')->nullable();
+                    $table->string('reference_code', 32)->nullable()->index();
+                    $table->unsignedTinyInteger('pack_size');
+                    $table->unsignedTinyInteger('discount_tier')->nullable();
+                    $table->decimal('discount_percent', 5, 2)->nullable();
+                    $table->string('status', 40)->default('in_progress')->index();
+                    $table->string('payment_method', 40)->nullable();
+                    $table->decimal('total_amount', 12, 2)->default(0);
+                    $table->unsignedTinyInteger('published_count')->default(0);
+                    $table->unsignedTinyInteger('refunded_count')->default(0);
+                    $table->unsignedTinyInteger('completed_count')->default(0);
+                    $table->timestamp('completed_at')->nullable();
+                    $table->timestamps();
+                    $table->index(['user_id', 'created_at']);
+                    $table->index(['site_id', 'reference_code']);
+                });
+                Log::info('Created missing order_packs table');
+            } catch (\Throwable $e) {
+                Log::warning('Could not create order_packs table', [
+                    'error' => $e->getMessage(),
+                    'hint' => 'Run database/sql/add_order_packs.sql in phpMyAdmin',
+                ]);
+            }
+        }
+
+        if ($this->tableExists('orders')) {
+            $this->addColumn('orders', 'order_pack_id', 'bigint unsigned NULL');
+            $this->addIndexIfMissing('orders', 'order_pack_id');
+        }
+
+        if ($this->tableExists('invoices')) {
+            $this->addColumn('invoices', 'order_pack_id', 'bigint unsigned NULL');
+            $this->addIndexIfMissing('invoices', 'order_pack_id');
+        }
     }
 
     /**
