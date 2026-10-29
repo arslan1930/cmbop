@@ -25,7 +25,7 @@
     <div class="mb-5 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
         <div class="d-flex align-items-start gap-4 mb-4 flex-wrap">
             <div style="width:90px; height:90px; border-radius:50%; overflow:hidden; flex-shrink:0; border:3px solid #5bc4c7; box-shadow:0 4px 12px rgba(63, 174, 178,0.25);">
-                <img src="{{ asset('assets/img/support-avatar.jpg') }}?v={{ @filemtime(public_path('assets/img/support-avatar.jpg')) ?: '1' }}"
+                <img src="{{ asset('assets/img/m-arslan-2026.jpg') }}?v={{ @filemtime(public_path('assets/img/m-arslan-2026.jpg')) ?: '1' }}"
                      alt="M Arslan - Founder & CEO"
                      width="90"
                      height="90"
