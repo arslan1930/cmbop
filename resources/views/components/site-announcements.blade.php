@@ -38,7 +38,8 @@
                     @endif
                 </div>
                 @if($item->is_dismissible)
-                    <button type="button" class="site-announcement__dismiss" aria-label="Dismiss announcement" data-dismiss-announcement="{{ $item->id }}" data-dismiss-version="{{ (int) ($item->version ?: 1) }}">
+                    <button type="button" class="site-announcement__dismiss" aria-label="Dismiss announcement" data-dismiss-announcement="{{ $item->id }}" data-dismiss-version="{{ (int) ($item->version ?: 1) }}"
+                        @if(auth()->check()) data-dismiss-url="{{ route('announcements.dismiss', $item) }}" @endif>
                         <i class="fa fa-times"></i>
                     </button>
                 @endif
@@ -59,6 +60,7 @@
             el.remove();
         }
     });
+    const csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
     document.querySelectorAll('[data-dismiss-announcement]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             const id = parseInt(btn.getAttribute('data-dismiss-announcement'), 10);
@@ -69,6 +71,23 @@
             if (dismissed.indexOf(token) === -1) {
                 dismissed.push(token);
                 try { localStorage.setItem(key, JSON.stringify(dismissed)); } catch (e) {}
+            }
+            const url = btn.getAttribute('data-dismiss-url');
+            if (url && csrf) {
+                const body = new URLSearchParams();
+                body.set('_token', csrf);
+                body.set('version', String(version));
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    },
+                    body: body.toString(),
+                    credentials: 'same-origin',
+                }).catch(function () {});
             }
         });
     });

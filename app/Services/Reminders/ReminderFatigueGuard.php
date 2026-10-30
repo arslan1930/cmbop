@@ -32,6 +32,7 @@ class ReminderFatigueGuard
         'new_sites_digest',
         'deposit_reminder',
         'publisher_add_site_reminder',
+        'abandoned_cart_reminder',
     ];
 
     /** @var array<int, int> */

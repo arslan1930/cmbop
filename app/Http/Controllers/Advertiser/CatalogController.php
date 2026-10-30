@@ -52,6 +52,7 @@ use App\Services\Marketplace\ArticleWritingService;
 use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\WritingFeeService;
+use App\Services\Advertiser\AdvertiserCartPersistence;
 use App\Services\Mcp\SavedCartSync;
 use App\Services\OrderChatContactGuard;
 use App\Services\OrderPaymentService;
@@ -1738,6 +1739,29 @@ class CatalogController extends Controller
     {
         $pruned = $this->pruneInactiveCartLines($cart);
         session()->put('cart', array_values($pruned['cart']));
+        $this->persistAdvertiserCart(array_values($pruned['cart']));
+    }
+
+    /**
+     * @param  array<int, mixed>  $cart
+     */
+    private function persistAdvertiserCart(array $cart): void
+    {
+        try {
+            app(AdvertiserCartPersistence::class)->persistFromSession(auth()->user(), $cart);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function forgetAdvertiserSessionCart(): void
+    {
+        session()->forget('cart');
+        try {
+            app(AdvertiserCartPersistence::class)->clear(auth()->user());
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function cartPayloadForClient(): array
@@ -3279,7 +3303,8 @@ class CatalogController extends Controller
      */
     public function clearCart(Request $request)
     {
-        session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'ordering_from_library', GuestPostWizardController::SESSION_KEY]);
+        session()->forget(['checkout_content_submission_id', 'checkout_schedule', 'ordering_from_library', GuestPostWizardController::SESSION_KEY]);
+        $this->forgetAdvertiserSessionCart();
 
         return $this->jsonSuccessfulCartPayload();
     }
@@ -8165,7 +8190,7 @@ class CatalogController extends Controller
             return;
         }
 
-        session()->forget('cart');
+        $this->forgetAdvertiserSessionCart();
         app(CartDisplayFx::class)->forget();
     }
 
@@ -8215,7 +8240,7 @@ class CatalogController extends Controller
         }
 
         if ($remaining === []) {
-            session()->forget('cart');
+            $this->forgetAdvertiserSessionCart();
             app(CartDisplayFx::class)->forget();
         } else {
             $this->putCatalogVisibleCart($remaining);

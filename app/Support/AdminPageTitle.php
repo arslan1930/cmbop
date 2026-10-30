@@ -43,6 +43,7 @@ final class AdminPageTitle
         'admin.emails.log' => 'Email log',
         'admin.emails.preview' => 'Email preview',
         'admin.campaigns.index' => 'Campaigns',
+        'admin.abandoned-carts.index' => 'Abandoned carts',
         'admin.campaigns.show' => 'Campaign',
         'admin.audiences.index' => 'Audiences',
         'admin.promotions.index' => 'Promotions',

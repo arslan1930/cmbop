@@ -115,6 +115,22 @@ return [
     | catch-up cap, and this step not yet recorded as sent".
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Advertiser: abandoned cart
+    |--------------------------------------------------------------------------
+    |
+    | Hourly scan. Stage 1 ~24h after last cart change, stage 2 ~72h, only if
+    | the cart still has items and they have not paid since. Master switch is
+    | off until the owner turns it on (env default or Admin → Abandoned carts).
+    |
+    */
+    'abandoned_cart' => [
+        'enabled' => filter_var(env('ABANDONED_CART_REMINDERS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'stage_1_hours' => max(1, (int) env('ABANDONED_CART_STAGE_1_HOURS', 24)),
+        'stage_2_hours' => max(1, (int) env('ABANDONED_CART_STAGE_2_HOURS', 72)),
+    ],
+
     'onboarding' => [
         'deposit_day7' => [
             'min_days' => 7,

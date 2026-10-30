@@ -13,7 +13,7 @@ class CampaignHtml
      */
     private const ALLOWED_TAGS = [
         'p', 'br', 'strong', 'b', 'em', 'i', 'u',
-        'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'blockquote',
+        'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'blockquote', 'img',
     ];
 
     /**
@@ -179,15 +179,34 @@ class CampaignHtml
         }
 
         $isAnchor = strtolower($el->tagName) === 'a';
+        $isImage = strtolower($el->tagName) === 'img';
 
         foreach ($names as $name) {
-            if ($isAnchor && strtolower($name) === 'href') {
+            $lower = strtolower($name);
+            if ($isAnchor && $lower === 'href') {
                 $safe = self::safeHref($el->getAttribute('href'));
                 if ($safe) {
                     $el->setAttribute('href', $safe);
                 } else {
                     $el->removeAttribute($name);
                 }
+
+                continue;
+            }
+
+            if ($isImage && $lower === 'src') {
+                $safe = self::safeHref($el->getAttribute('src'), ['http', 'https']);
+                if ($safe) {
+                    $el->setAttribute('src', $safe);
+                } else {
+                    $el->removeAttribute($name);
+                }
+
+                continue;
+            }
+
+            if ($isImage && $lower === 'alt') {
+                $el->setAttribute('alt', trim(strip_tags($el->getAttribute('alt'))));
 
                 continue;
             }
@@ -203,6 +222,10 @@ class CampaignHtml
                 }
                 $parent->removeChild($el);
             }
+        }
+
+        if ($isImage && ! $el->hasAttribute('src')) {
+            $el->parentNode?->removeChild($el);
         }
     }
 }

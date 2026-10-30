@@ -235,7 +235,11 @@ and add-site / deposit reminders keep their own queries.
 - `respect_preferences` is a real checkbox (hidden `0` + checkbox `1`). The
   controller uses `$request->boolean('respect_preferences')` with no default
   `true`.
-- Preference gate is `marketing_emails` only. Order, payment, and security
+- Preference gate is `marketing_emails` for promotional campaigns. The
+  **Feature update / What’s new** compose template stores
+  `preference_key=system_updates` because those emails are product news, not
+  offers. Recipients who opted out of system updates are skipped; marketing
+  opt-out does not block a feature update. Order, payment, and security
   mail stay on. The job pre-checks before queueing; the mailable checks again
   at send time so an unsubscribe that lands in between is still honored.
 - Transactional `PlatformMailable` drops after `MAIL_MAX_AGE_HOURS` (24).

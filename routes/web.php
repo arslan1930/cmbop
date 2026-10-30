@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AbandonedCartController as AdminAbandonedCartController;
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
 use App\Http\Controllers\Admin\AdBannerController as AdminAdBannerController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
@@ -69,6 +70,7 @@ use App\Http\Controllers\Advertiser\SiteVisitController;
 use App\Http\Controllers\Advertiser\WebsiteSuggestionController;
 use App\Http\Controllers\Advertiser\OrderPackController;
 use App\Http\Controllers\AnnouncementClickController;
+use App\Http\Controllers\AnnouncementDismissController;
 use App\Http\Controllers\ApiDocs\AdvertiserApiDocsController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
@@ -1187,6 +1189,9 @@ Route::get('/banners/{banner}/click', BannerClickController::class)
 Route::get('/announcements/{announcement}/click', AnnouncementClickController::class)
     ->middleware('throttle:30,1')
     ->name('announcements.click');
+Route::post('/announcements/{announcement}/dismiss', AnnouncementDismissController::class)
+    ->middleware(['auth', 'throttle:30,1'])
+    ->name('announcements.dismiss');
 Route::post('/promotions/track', PromotionTrackController::class)
     ->middleware('throttle:30,1')
     ->name('promotions.track');
@@ -1738,6 +1743,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/audiences/export', [AdminAudienceController::class, 'export'])
             ->middleware('throttle:12,1')
             ->name('audiences.export');
+        Route::get('/abandoned-carts', [AdminAbandonedCartController::class, 'index'])->name('abandoned-carts.index');
+        Route::post('/abandoned-carts/toggle', [AdminAbandonedCartController::class, 'toggle'])
+            ->name('abandoned-carts.toggle');
+
         Route::get('/campaigns', [AdminCampaignController::class, 'index'])->name('campaigns.index');
         Route::match(['get', 'post'], '/campaigns/recipient-count', [AdminCampaignController::class, 'recipientCount'])
             ->middleware('throttle:30,1')

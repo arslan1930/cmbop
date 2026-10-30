@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Mail\AbandonedCartReminderMail;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminBulkDiscountNotification;
 use App\Mail\AdminManualPaymentNotification;
@@ -634,6 +635,13 @@ class EmailCatalog
                 'mailable' => DepositReminderMail::class,
                 'status' => 'active',
             ],
+            'abandoned_cart_reminder' => [
+                'name' => 'Abandoned Cart Reminder (24h / 72h)',
+                'description' => 'Hourly scheduled nudge listing cart sites at the advertiser price. Off until Admin → Abandoned carts is enabled.',
+                'category' => 'Advertisers',
+                'mailable' => AbandonedCartReminderMail::class,
+                'status' => 'active',
+            ],
             'publisher_accept_nudge' => [
                 'name' => 'Publisher: accept the order',
                 'description' => 'Chases a publisher who has not accepted a paid order. Escalates to admin at stage 3.',
@@ -883,6 +891,8 @@ class EmailCatalog
             'finish setup' => 'publisher_add_site_reminder',
             'your €20 credit is waiting' => 'deposit_reminder',
             'add funds to place your first guest post' => 'deposit_reminder',
+            'you still have sites in your cart' => 'abandoned_cart_reminder',
+            'your cart is still waiting' => 'abandoned_cart_reminder',
             'a paid order is waiting on you' => 'publisher_accept_nudge',
             'is still unaccepted' => 'publisher_accept_nudge',
             'waiting to be published' => 'publisher_publish_nudge',
@@ -1031,6 +1041,22 @@ class EmailCatalog
             'website_suggestion_reviewed' => new WebsiteSuggestionReviewed(self::sampleWebsiteSuggestion()),
             'publisher_add_site_reminder' => new PublisherAddSiteReminderMail($user, PublisherAddSiteReminderMail::STEP_DAY3),
             'deposit_reminder' => new DepositReminderMail($user, DepositReminderMail::STEP_DAY14),
+            'abandoned_cart_reminder' => new AbandonedCartReminderMail($user, AbandonedCartReminderMail::STAGE_1, [
+                [
+                    'domain' => 'example.com',
+                    'quantity' => 1,
+                    'price' => 90.0,
+                    'was' => 120.0,
+                    'discount' => 25.0,
+                ],
+                [
+                    'domain' => 'sample-two.example',
+                    'quantity' => 2,
+                    'price' => 140.0,
+                    'was' => null,
+                    'discount' => null,
+                ],
+            ], 'preview'),
             'publisher_accept_nudge' => new PublisherAcceptNudge($user, $order, $item, $site, 2, 36),
             'publisher_publish_nudge' => new PublisherPublishNudge($user, collect([
                 [

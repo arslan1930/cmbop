@@ -29,6 +29,15 @@
     if (! isset($audienceOptions[$audienceCurrent])) {
         $audienceCurrent = $preselect;
     }
+    $resumeTemplateKey = old('template_key', $resumeDraft->template_key ?? '');
+    $resumeFeaturePayload = is_array($resumeDraft?->template_payload) ? $resumeDraft->template_payload : [];
+    $resumeFeatureTitle = old_text('feature_title', $resumeFeaturePayload['title'] ?? '');
+    $resumeFeatureIntro = old_text('feature_intro', $resumeFeaturePayload['intro'] ?? '');
+    $resumeFeatures = old('features', $resumeFeaturePayload['features'] ?? []);
+    if (! is_array($resumeFeatures)) {
+        $resumeFeatures = [];
+    }
+    $isFeatureUpdate = $resumeTemplateKey === \App\Support\FeatureUpdateHtml::TEMPLATE_KEY;
 @endphp
 <link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
 <div class="container-fluid">
@@ -180,6 +189,7 @@
                         @if($resumeDraft)
                             <input type="hidden" name="draft_id" value="{{ $resumeDraft->id }}">
                         @endif
+                        <input type="hidden" name="template_key" id="campaignTemplateKey" value="{{ $isFeatureUpdate ? 'feature_update' : '' }}">
                         @if($handoff !== [])
                             <div class="alert alert-info py-2 small">
                                 Inventory filters will apply to this send:
@@ -311,15 +321,50 @@
                                         data-body="<p>We will perform scheduled maintenance this weekend. Some services may be briefly unavailable. Thanks for your patience.</p>"
                                         data-cta=""
                                         data-url="">Maintenance Notice</button>
+                                    <button type="button" class="btn btn-sm btn-outline-info" id="featureUpdateTemplateBtn">
+                                        Feature update / What’s new
+                                    </button>
+                                </div>
+                                <div class="form-text">Feature update / What’s new uses the <strong>System Updates</strong> preference (product news). Promotional campaigns still use Marketing Emails.</div>
+                            </div>
+                            <div class="col-12 {{ $isFeatureUpdate ? '' : 'd-none' }}" id="featureUpdateFields">
+                                <div class="border rounded-3 p-3 bg-light">
+                                    <div class="fw-semibold mb-1">Feature update / What’s new</div>
+                                    <p class="small text-muted mb-3">
+                                        Recipients who opted out of system updates are skipped. Add a title, intro, and up to five feature bullets. Each bullet can include an optional link or image URL.
+                                    </p>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="featureTitle">Title</label>
+                                        <input type="text" name="feature_title" id="featureTitle" class="form-control" value="{{ $resumeFeatureTitle }}" maxlength="180" placeholder="What’s new this month">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="featureIntro">Intro</label>
+                                        <textarea name="feature_intro" id="featureIntro" class="form-control" rows="3" maxlength="2000" placeholder="A short recap of what shipped.">{{ $resumeFeatureIntro }}</textarea>
+                                    </div>
+                                    @for($i = 0; $i < 5; $i++)
+                                        @php $featureRow = is_array($resumeFeatures[$i] ?? null) ? $resumeFeatures[$i] : []; @endphp
+                                        <div class="border rounded-3 p-3 mb-2 bg-white">
+                                            <label class="form-label">Feature {{ $i + 1 }}</label>
+                                            <input type="text" name="features[{{ $i }}][text]" class="form-control mb-2 feature-text" value="{{ old_text('features.'.$i.'.text', $featureRow['text'] ?? '') }}" maxlength="240" placeholder="What shipped">
+                                            <div class="row g-2">
+                                                <div class="col-md-6">
+                                                    <input type="url" name="features[{{ $i }}][url]" class="form-control form-control-sm" value="{{ old_text('features.'.$i.'.url', $featureRow['url'] ?? '') }}" maxlength="500" placeholder="https:// optional link">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <input type="url" name="features[{{ $i }}][image]" class="form-control form-control-sm" value="{{ old_text('features.'.$i.'.image', $featureRow['image'] ?? '') }}" maxlength="500" placeholder="https:// optional image">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endfor
                                 </div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Subject</label>
                                 <input type="text" name="subject" id="campaignSubject" class="form-control" value="{{ old_text('subject', request('subject', $resumeDraft->subject ?? '')) }}" required maxlength="180" placeholder="Black Friday update for our partners">
                             </div>
-                            <div class="col-12">
+                            <div class="col-12" id="campaignBodyWrap">
                                 <label class="form-label">Message (HTML allowed: p, strong, em, lists, links)</label>
-                                <textarea name="body_html" id="campaignBody" class="form-control" rows="8" required maxlength="20000" placeholder="<p>Share your update, discount, or promotion here.</p>">{{ old_text('body_html', request('body_html', $resumeDraft->body_html ?? '')) }}</textarea>
+                                <textarea name="body_html" id="campaignBody" class="form-control" rows="8" @required(!$isFeatureUpdate) maxlength="20000" placeholder="<p>Share your update, discount, or promotion here.</p>">{{ old_text('body_html', request('body_html', $resumeDraft->body_html ?? '')) }}</textarea>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">CTA label (optional)</label>
@@ -340,8 +385,10 @@
                                     <input type="hidden" name="respect_preferences" value="0">
                                     <input class="form-check-input" type="checkbox" name="respect_preferences" value="1" id="respect_preferences"
                                         @checked(filter_var(old('respect_preferences', $resumeDraft->respect_preferences ?? true), FILTER_VALIDATE_BOOLEAN))>
-                                    <label class="form-check-label" for="respect_preferences">
-                                        Respect user “Marketing Emails” preference (recommended)
+                                    <label class="form-check-label" for="respect_preferences" id="respectPreferencesLabel">
+                                        {{ $isFeatureUpdate
+                                            ? 'Respect user “System Updates” preference (recommended). Feature updates are product news, not promotions.'
+                                            : 'Respect user “Marketing Emails” preference (recommended)' }}
                                     </label>
                                 </div>
                                 <div class="form-check mt-2">
@@ -657,6 +704,7 @@
             form.querySelector('[name=cta_label]').value = data.cta_label || '';
             form.querySelector('[name=cta_url]').value = data.cta_url || '';
             emailTemplateDirty = false;
+            setFeatureUpdateMode(false);
             const frame = document.getElementById('previewFrame');
             if (frame && data.html) {
                 frame.srcdoc = data.html;
@@ -680,25 +728,77 @@
         }
     }
 
+    const templateKeyField = document.getElementById('campaignTemplateKey');
+    const featureUpdateFields = document.getElementById('featureUpdateFields');
+    const respectPreferencesLabel = document.getElementById('respectPreferencesLabel');
+
+    function setFeatureUpdateMode(on) {
+        if (templateKeyField) {
+            templateKeyField.value = on ? 'feature_update' : '';
+        }
+        if (featureUpdateFields) {
+            featureUpdateFields.classList.toggle('d-none', !on);
+        }
+        if (campaignBody) {
+            campaignBody.required = !on;
+        }
+        if (respectPreferencesLabel) {
+            respectPreferencesLabel.textContent = on
+                ? 'Respect user “System Updates” preference (recommended). Feature updates are product news, not promotions.'
+                : 'Respect user “Marketing Emails” preference (recommended)';
+        }
+    }
+
+    function clearEmailCenterPicker() {
+        if (templatePicker) {
+            templatePicker.value = '';
+        }
+        const templateValue = document.getElementById('emailTemplateValue');
+        if (templateValue) {
+            templateValue.innerHTML = '<span class="single-select-placeholder">Use an Email Center template…</span>';
+        }
+        document.querySelectorAll('#emailTemplateDropdown .single-select-option').forEach(function (o) {
+            o.classList.remove('selected');
+        });
+    }
+
     document.querySelectorAll('.campaign-template').forEach(function (btn) {
         btn.addEventListener('click', function () {
+            setFeatureUpdateMode(false);
             campaignSubject.value = btn.dataset.subject || '';
             campaignBody.value = btn.dataset.body || '';
             form.querySelector('[name=cta_label]').value = btn.dataset.cta || '';
             form.querySelector('[name=cta_url]').value = btn.dataset.url || '';
-            if (templatePicker) {
-                templatePicker.value = '';
-            }
-            const templateValue = document.getElementById('emailTemplateValue');
-            if (templateValue) {
-                templateValue.innerHTML = '<span class="single-select-placeholder">Use an Email Center template…</span>';
-            }
-            document.querySelectorAll('#emailTemplateDropdown .single-select-option').forEach(function (o) {
-                o.classList.remove('selected');
-            });
+            clearEmailCenterPicker();
             emailTemplateDirty = true;
         });
     });
+
+    const featureUpdateBtn = document.getElementById('featureUpdateTemplateBtn');
+    if (featureUpdateBtn) {
+        featureUpdateBtn.addEventListener('click', function () {
+            setFeatureUpdateMode(true);
+            campaignSubject.value = 'What’s new on SEOLinkBuildings';
+            const title = document.getElementById('featureTitle');
+            const intro = document.getElementById('featureIntro');
+            if (title && !title.value) {
+                title.value = 'What’s new';
+            }
+            if (intro && !intro.value) {
+                intro.value = 'A few product updates we shipped for advertisers and publishers.';
+            }
+            const firstText = form.querySelector('[name="features[0][text]"]');
+            if (firstText && !firstText.value) {
+                firstText.value = 'New tools and fixes are live in your dashboard.';
+            }
+            form.querySelector('[name=cta_label]').value = 'Open the dashboard';
+            form.querySelector('[name=cta_url]').value = @json(url('/advertiser/dashboard'));
+            clearEmailCenterPicker();
+            emailTemplateDirty = true;
+        });
+    }
+
+    setFeatureUpdateMode(templateKeyField && templateKeyField.value === 'feature_update');
 
     const previewStatus = document.getElementById('previewStatus');
     const previewFrame = document.getElementById('previewFrame');
@@ -862,7 +962,7 @@
         const fd = new FormData();
         fd.append('_token', form.querySelector('[name=_token]').value);
         const templateKey = templatePicker ? templatePicker.value : '';
-        if (templateKey && !emailTemplateDirty) {
+        if (templateKey && !emailTemplateDirty && !(templateKeyField && templateKeyField.value === 'feature_update')) {
             fd.append('template', templateKey);
             fd.append('audience', (templateAudience && templateAudience.value) ? templateAudience.value : audience.value);
         } else {
@@ -872,6 +972,21 @@
             const ctaUrl = form.querySelector('[name=cta_url]').value;
             if (ctaLabel) fd.append('cta_label', ctaLabel);
             if (ctaUrl) fd.append('cta_url', ctaUrl);
+            if (templateKeyField && templateKeyField.value === 'feature_update') {
+                fd.append('template_key', 'feature_update');
+                const title = document.getElementById('featureTitle');
+                const intro = document.getElementById('featureIntro');
+                if (title && title.value) fd.append('feature_title', title.value);
+                if (intro && intro.value) fd.append('feature_intro', intro.value);
+                for (let i = 0; i < 5; i++) {
+                    const text = form.querySelector('[name="features[' + i + '][text]"]');
+                    const url = form.querySelector('[name="features[' + i + '][url]"]');
+                    const image = form.querySelector('[name="features[' + i + '][image]"]');
+                    if (text && text.value) fd.append('features[' + i + '][text]', text.value);
+                    if (url && url.value) fd.append('features[' + i + '][url]', url.value);
+                    if (image && image.value) fd.append('features[' + i + '][image]', image.value);
+                }
+            }
         }
 
         setPreviewStatus('Rendering preview…', false);
