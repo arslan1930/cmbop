@@ -2205,9 +2205,20 @@
         });
         window.addEventListener('popstate', slbRememberCatalog);
     }
+    // Off-catalog only: bare /advertiser/catalog links restore the last filtered
+    // listing (Continue shopping / sidebar). On the catalog page itself those
+    // same bare hrefs mean clear — chip ×, Clear all, and Reset — and must not
+    // be rewritten back to sessionStorage or filter chips appear dead.
     document.addEventListener('click', function (event) {
+        if (onCatalogPage) return;
         const link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-        if (!link || link.classList.contains('catalog-clear-all')) return;
+        if (!link) return;
+        // Defense in depth if this handler is ever reused on-catalog.
+        if (link.classList.contains('catalog-clear-all')
+            || link.classList.contains('catalog-reset-filters')
+            || link.classList.contains('filter-chip__remove')) {
+            return;
+        }
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
         if (link.target && link.target !== '_self') return;
         let url;

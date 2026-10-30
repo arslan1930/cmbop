@@ -125,6 +125,50 @@ class CatalogLiveClientTest extends TestCase
         );
     }
 
+    public function test_active_filter_chips_clear_without_catalog_return_rewrite(): void
+    {
+        $js = $this->catalogJs();
+        $layout = (string) file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
+
+        // Layout used to rewrite bare /advertiser/catalog hrefs (chip × / Reset /
+        // Clear all) back to sessionStorage's last filtered URL while already on
+        // the catalog — clicks looked dead. Skip that rewrite on-catalog, and
+        // still exclude the clear controls if the handler is reused elsewhere.
+        $this->assertMatchesRegularExpression(
+            '/if \(onCatalogPage\) return;/',
+            $layout
+        );
+        $this->assertStringContainsString("link.classList.contains('catalog-clear-all')", $layout);
+        $this->assertStringContainsString("link.classList.contains('catalog-reset-filters')", $layout);
+        $this->assertStringContainsString("link.classList.contains('filter-chip__remove')", $layout);
+
+        // Chip / Clear / Reset apply in capture so a later bubble restore cannot win.
+        $this->assertMatchesRegularExpression(
+            '/closest\(\'\.filter-chip__remove\'\)[\s\S]*?CatalogLive\.apply\(\{ params: params, history: \'push\', keepPage: true \}\);/',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/closest\(\'a\.catalog-clear-all, a\.catalog-reset-filters\'\)[\s\S]*?CatalogUrl\.applyToForm\(empty\)/',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/CatalogLive\.apply\(\{ params: empty, history: \'push\', keepPage: true \}\);\s*\}\s*\}, true\);/s',
+            $js
+        );
+        $this->assertStringContainsString('CatalogUrl.applyToForm(params)', $js);
+        // Chip × keeps a native title for no-JS, but opts out of GlassTip so a
+        // hover panel cannot cover × / Clear all and swallow the click.
+        $this->assertStringContainsString('data-no-tip="1"', $js);
+        $blade = (string) file_get_contents(resource_path('views/advertiser/catalog.blade.php'));
+        $this->assertStringContainsString('data-no-tip="1"', $blade);
+        $glassCss = (string) file_get_contents(public_path('assets/css/glass-tip.css'));
+        $this->assertMatchesRegularExpression(
+            '/\.glass-tip\.is-visible\s*\{[^}]*pointer-events:\s*none/s',
+            $glassCss
+        );
+        $this->assertStringContainsString('.glass-tip.is-visible.is-pinned', $glassCss);
+    }
+
     public function test_live_ux_polish_guards_busy_state_and_announcements(): void
     {
         $js = $this->catalogJs();
