@@ -15,7 +15,7 @@ Nothing else on your account is affected, and any websites already listed stay e
 Add websites again
 @endcomponent
 
-If this looks like a mistake, reply to this email and we will take another look.
+If this looks like a mistake, open My Sites or contact support and we will take another look.
 
 Thanks,<br>
 {{ config('app.name') }}

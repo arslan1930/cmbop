@@ -81,7 +81,7 @@
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Invoice date</span>
-                            <strong>{{ optional($invoice->invoice_date)->format('M j, Y g:i A') ?: '—' }}</strong>
+                            <strong>{{ $invoice->invoice_date ? \App\Support\MailNotificationPresenter::formatDateTime($invoice->invoice_date) : '—' }}</strong>
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Due date</span>
@@ -119,11 +119,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($lineItems as $line)
+                            @forelse(\App\Support\InvoiceLinePresenter::displayLines($invoice) as $line)
                                 <tr>
-                                    <td>{{ $line['description'] ?? '—' }}</td>
-                                    <td>{{ $line['publisher_website'] ?? $line['reference'] ?? '—' }}</td>
-                                    <td class="text-end text-nowrap">{{ $symbol }}{{ number_format((float) ($line['line_total'] ?? $line['total'] ?? 0), 2) }}</td>
+                                    <td>
+                                        {{ $line['description'] ?? '—' }}
+                                        @if(!empty($line['live_url']))
+                                            <div class="small text-break mt-1">Live URL: <a href="{{ $line['live_url'] }}">{{ $line['live_url'] }}</a></div>
+                                        @endif
+                                    </td>
+                                    <td>{{ $line['website'] ?? $line['reference'] ?? '—' }}</td>
+                                    <td class="text-end text-nowrap">{{ $symbol }}{{ number_format((float) ($line['line_total'] ?? 0), 2) }}</td>
                                 </tr>
                             @empty
                                 <tr><td colspan="3" class="text-muted text-center py-4">No line items</td></tr>

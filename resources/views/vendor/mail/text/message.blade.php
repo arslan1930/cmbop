@@ -21,6 +21,8 @@
     {{-- Footer --}}
     <x-slot:footer>
         <x-mail::footer>
+            {{ \App\Support\LegalIdentity::footer() }}
+
             © {{ date('Y') }} {{ mail_brand_name() }}. @lang('All rights reserved.')
         </x-mail::footer>
     </x-slot:footer>

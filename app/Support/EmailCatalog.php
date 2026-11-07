@@ -839,6 +839,7 @@ class EmailCatalog
             'order rejected -' => 'order_rejected',
             'order approved by advertiser' => 'order_completed',
             'live url submitted' => 'live_url_submitted',
+            'ready for review' => 'order_status_changed',
             'restore the live link' => 'link_guarantee_restore',
             'article ready for approval' => 'article_ready_for_approval',
             'article ready to publish' => 'article_approved_for_publish',
@@ -1196,6 +1197,7 @@ class EmailCatalog
             'homepage_price' => 25.00,
             'social_channels' => ['facebook', 'x'],
             'content_link' => 'https://example.com/content.docx',
+            'live_url' => 'https://example.com/sample-live-url',
         ]);
         $item->id = self::PREVIEW_ID;
         $item->exists = false;

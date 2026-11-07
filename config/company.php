@@ -7,7 +7,8 @@ return [
     | Operating company
     |--------------------------------------------------------------------------
     |
-    | legal_name must be the exact Companies House spelling (TEQNO LTD).
+    | legal_name must be the exact Companies House spelling (Teqno Ltd).
+    | Customer invoices/emails use "Teqno Ltd trading as SEOLinkBuildings".
     | Do not put "Partners with" in this value. 16607074 is a leftover
     | TOPURLZ LTD number — never pair it with Teqno Ltd.
     |

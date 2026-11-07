@@ -19,7 +19,7 @@ Nothing else on your account is affected. Websites we already published stay on 
 Open My Sites
 @endcomponent
 
-If this looks like a mistake, reply to this email and we will take another look.
+If this looks like a mistake, open My Sites or contact support and we will take another look.
 
 Thanks,<br>
 {{ config('app.name') }}

@@ -1,16 +1,26 @@
 @component('mail::message')
 # Order confirmed · Managed by SLB
 
-Hello {{ $order->user?->name ?? 'there' }},
+Hello {{ $firstName ?? ($order->user?->name ?? 'there') }},
 
 {{ $bodyCopy }}
 
-**Order:** #{{ $order->order_number }}
+@include('emails.partials.placement-urls', [
+    'placements' => $placements ?? [],
+    'missingLabel' => 'You’ll get the live URL here when it’s published.',
+    'urlHeading' => 'Live article URL',
+])
 
-@component('mail::button', ['url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
-Open My Orders
+@include('emails.partials.summary-table', ['rows' => [
+    ['label' => 'Order number', 'value' => '#'.$order->order_number],
+]])
+
+@component('mail::button', ['url' => $ctaUrl ?? route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
+View Order Details
 @endcomponent
 
+@include('emails.partials.mail-support', ['supportLine' => $supportLine ?? null, 'intent' => 'order'])
+
 Thanks,<br>
-{{ config('app.name') }}
+{{ $brand['name'] ?? config('app.name') }}
 @endcomponent

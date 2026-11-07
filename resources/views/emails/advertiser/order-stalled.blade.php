@@ -3,7 +3,7 @@
 
 Hi {{ $firstName }},
 
-Your guest post on {{ $siteName }} (order #{{ $order->order_number }}) was due on {{ $dueAt->format('j M') }} and is now {{ $daysOverdue }} day(s) late. We would rather tell you than leave you wondering.
+Your guest post on {{ $siteName }} (order #{{ $order->order_number }}) was due on {{ \App\Support\MailNotificationPresenter::formatDateTime($dueAt) }} and is now {{ $daysOverdue }} day(s) late. We would rather tell you than leave you wondering.
 
 Here is where it stands:
 
@@ -15,7 +15,7 @@ Here is where it stands:
 View the order
 @endcomponent
 
-You can message the publisher directly in the order chat, and if you would rather not wait, reply to this email and we will arrange the refund.
+You can message from the order page, and if you would rather not wait, open the order or contact support to arrange a refund.
 
 Sorry for the delay,<br>
 {{ config('app.name') }}

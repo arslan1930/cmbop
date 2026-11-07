@@ -7,9 +7,8 @@ We regret to inform you that your order #{{ $order->order_number }} has been rej
 
 ## Order Details:
 
-- Site: {{ $site->site_name }}
-- Order Number: {{ $order->order_number }}
-- Reference Code: {{ $order->reference_code }}
+- Website: {{ $site->site_name }}@if(!empty($site->domain)) ({{ $site->domain }})@endif
+- Order number: #{{ $order->order_number }}
 
 ## Reason for Rejection:
 {{ $reason }}

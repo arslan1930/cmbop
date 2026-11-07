@@ -7,10 +7,12 @@ Your order #{{ $order->order_number }} has been accepted by the publisher.
 
 ## Order Details:
 
-- Site: {{ $site->site_name }}
-- Order Number: {{ $order->order_number }}
-- Reference Code: {{ $order->reference_code }}
-- Content to be published: <a href="{{ $orderItem->content_link }}">View Content</a>
+- Website: {{ $site->site_name }}@if(!empty($site->domain)) ({{ $site->domain }})@endif
+- Order number: #{{ $order->order_number }}
+@php $contentHref = function_exists('safe_href_url') ? safe_href_url($orderItem->content_link) : null; @endphp
+@if($contentHref)
+- Content to be published: <a href="{{ $contentHref }}">View Content</a>
+@endif
 
 @php
     $mailItem = $orderItem ?? null;

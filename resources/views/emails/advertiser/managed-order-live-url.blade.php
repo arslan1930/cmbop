@@ -1,20 +1,26 @@
 @component('mail::message')
 # Your article is live
 
-Hello {{ $order->user?->name ?? 'there' }},
+Hello {{ $firstName ?? ($order->user?->name ?? 'there') }},
 
 {{ $bodyCopy }}
 
-**Order:** #{{ $order->order_number }}
+@include('emails.partials.placement-urls', [
+    'placements' => $placements ?? [],
+    'missingLabel' => 'The live URL will appear here when it is published.',
+    'urlHeading' => 'Live article URL',
+])
 
-@if(!empty($liveUrl))
-**Live URL:** [{{ $liveUrl }}]({{ $liveUrl }})
-@endif
+@include('emails.partials.summary-table', ['rows' => [
+    ['label' => 'Order number', 'value' => '#'.$order->order_number],
+]])
 
-@component('mail::button', ['url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
-Open My Orders
+@component('mail::button', ['url' => $ctaUrl ?? route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
+View Order Details
 @endcomponent
 
+@include('emails.partials.mail-support', ['supportLine' => $supportLine ?? null, 'intent' => 'order'])
+
 Thanks,<br>
-{{ config('app.name') }}
+{{ $brand['name'] ?? config('app.name') }}
 @endcomponent

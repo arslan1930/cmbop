@@ -161,7 +161,7 @@ class SendOrderLifecycleEmails
             'processing' => $from === 'review'
                 ? 'Revision was requested — the order is back in processing.'
                 : 'Great news — the publisher accepted this order and work can begin.',
-            'review' => 'The guest post / live URL was submitted and is ready for review.',
+            'review' => 'This order is in review. Open the order to check the live article URL if one has been submitted.',
             'completed' => 'This order has been completed successfully.',
             'cancelled' => 'This order was cancelled.',
             'pending' => 'This order is pending the next action.',

@@ -257,12 +257,15 @@ class CatalogEyeOnlyHideModeAcceptanceTest extends TestCase
     {
         $paymentMail = file_get_contents(resource_path('views/emails/order-payment-confirmed.blade.php'));
         $statusMail = file_get_contents(resource_path('views/emails/orders/status-changed.blade.php'));
+        $presenter = file_get_contents(app_path('Support/MailNotificationPresenter.php'));
 
         $this->assertStringContainsString('$item->site_name', $paymentMail);
         $this->assertStringContainsString('$item->site_url', $paymentMail);
-        $this->assertStringContainsString('site_name', $statusMail);
+        $this->assertStringContainsString('site_name', $presenter);
+        $this->assertStringContainsString('placements', $statusMail);
         $this->assertStringNotContainsString('SiteUrlVisibility', $paymentMail);
         $this->assertStringNotContainsString('SiteUrlVisibility', $statusMail);
+        $this->assertStringNotContainsString('SiteUrlVisibility', $presenter);
         $this->assertStringNotContainsString('hostFor', $paymentMail);
         $this->assertStringNotContainsString('maskName', $statusMail);
     }

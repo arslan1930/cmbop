@@ -140,8 +140,8 @@ class BrandOrganization
     }
 
     /**
-     * Companies House spelling only. The billing fallback "Partners with (Teqno LTD)"
-     * is not a legal name and must not be published as legalName.
+     * Companies House spelling only. Leftover "Partners with (Teqno LTD)" is not
+     * a legal name and must not be published as legalName.
      */
     public static function confirmedLegalName(): ?string
     {

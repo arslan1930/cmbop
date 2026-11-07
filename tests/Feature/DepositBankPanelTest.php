@@ -145,7 +145,7 @@ class DepositBankPanelTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('17392540', $html);
-        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
+        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
         $this->assertStringNotContainsString('>16607074<', $html);
         $this->assertStringNotContainsString('Phone no:', $html);
         $this->assertStringNotContainsString('+447445152374', $html);
@@ -169,7 +169,7 @@ class DepositBankPanelTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $invoice);
+        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $invoice);
         $this->assertStringContainsString('17392540', $invoice);
         $this->assertStringNotContainsString('16607074', $invoice);
         $this->assertStringNotContainsString('Phone no:', $invoice);
@@ -197,7 +197,7 @@ class DepositBankPanelTest extends TestCase
         $pay = DepositPaymentConfig::depositPayment();
         $this->assertSame('BE40 9059 9538 0863', $pay['eur_iban']);
         $this->assertSame('TRWIBEB1XXX', $pay['eur_bic']);
-        $this->assertSame('Teqno Ltd (partners SEOLinkBuildings)', $pay['beneficiary_display']);
+        $this->assertSame('Teqno Ltd trading as SEOLinkBuildings', $pay['beneficiary_display']);
         $this->assertSame('GB30 TRWI 2308 0132 9321 94', $pay['iban']);
         $this->assertSame('TRWIGB2LXXX', $pay['bic']);
 
@@ -224,7 +224,7 @@ class DepositBankPanelTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
+        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
         $this->assertStringContainsString('BE40 9059 9538 0863', $html);
         $this->assertStringContainsString('TRWIBEB1XXX', $html);
         $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
@@ -253,7 +253,7 @@ class DepositBankPanelTest extends TestCase
         $email = (new DepositRequestSubmitted($deposit))->render();
 
         foreach ([$invoice, $email] as $surface) {
-            $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $surface);
+            $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $surface);
             $this->assertStringContainsString('BE40 9059 9538 0863', $surface);
             $this->assertStringContainsString('TRWIBEB1XXX', $surface);
             $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $surface);

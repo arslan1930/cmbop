@@ -1,5 +1,5 @@
 @component('mail::message')
-# Order Approved! 🎉
+# Order approved
 
 Dear Publisher,
 
@@ -7,9 +7,8 @@ Great news! The advertiser has approved the order for your site.
 
 ## Order Details:
 
-- Order Number: #{{ $order->order_number }}
-- Site: {{ $site->site_name }}
-- Reference Code: {{ $order->reference_code }}
+- Order number: #{{ $order->order_number }}
+- Website: {{ $site->site_name }}@if(!empty($site->domain)) ({{ $site->domain }})@endif
 
 ## Content Details:
 
@@ -21,8 +20,9 @@ Great news! The advertiser has approved the order for your site.
 @if($publisherContentLink)
 - Content Link: <a href="{{ $publisherContentLink }}">View Content</a>
 @endif
-@if(filled($orderItem->live_url ?? null))
-- Live URL: <a href="{{ $orderItem->live_url }}">{{ $orderItem->live_url }}</a>
+@php $approvedLive = \App\Support\MailNotificationPresenter::safeLiveUrl($orderItem->live_url ?? null); @endphp
+@if($approvedLive)
+- Live article URL: <a href="{{ $approvedLive }}">{{ $approvedLive }}</a>
 @endif
 
 ## Payment Details:

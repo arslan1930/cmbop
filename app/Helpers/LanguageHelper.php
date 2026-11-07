@@ -561,6 +561,11 @@ if (! function_exists('billing_company_for_documents')) {
             $company['name'] = 'SEOLinkBuildings';
         }
         $company['website_url'] = brand_public_origin();
+        $company['legal_name'] = \App\Support\LegalIdentity::normalizeLegalName(
+            (string) ($company['legal_name'] ?? '')
+        );
+        $company['issuer_name'] = \App\Support\LegalIdentity::issuerName();
+        $company['legal_footer'] = \App\Support\LegalIdentity::footer();
 
         return $company;
     }

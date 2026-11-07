@@ -41,6 +41,8 @@ Need help? Contact us at [{{ $support }}](mailto:{{ $support }})
 
 [{{ $brandName }}]({{ $siteUrl }})
 
+{{ \App\Support\LegalIdentity::footer() }}
+
 © {{ date('Y') }} {{ $brandName }}. All rights reserved.
 </x-mail::footer>
 </x-slot:footer>

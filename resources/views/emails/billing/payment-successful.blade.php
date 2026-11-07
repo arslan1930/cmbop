@@ -14,7 +14,7 @@ Your payment was successful. Your invoice is attached to this email.
 | Amount paid | {{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }} {{ $invoice->currency }} |
 | Payment method | {{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }} |
 | Transaction ID | {{ $invoice->transaction_id }} |
-| Paid at | {{ optional($invoice->paid_at)->format('F j, Y g:i A') ?? '—' }} |
+| Paid at | {{ \App\Support\MailNotificationPresenter::formatDateTime($invoice->paid_at) }} |
 
 ## Order summary
 

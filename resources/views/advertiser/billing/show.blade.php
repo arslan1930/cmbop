@@ -48,7 +48,7 @@
                             <span class="text-muted d-block">{{ $invoice->order_id ? 'Order' : 'Reference' }}</span>
                             <strong>{{ $invoice->referenceLabel() }}</strong>
                         </div>
-                        <div class="col-md-4"><span class="text-muted d-block">Date</span><strong>{{ optional($invoice->invoice_date)->format('M j, Y g:i A') }}</strong></div>
+                        <div class="col-md-4"><span class="text-muted d-block">Date</span><strong>{{ \App\Support\MailNotificationPresenter::formatDateTime($invoice->invoice_date) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Amount</span><strong>{{ format_money($invoice->total_amount) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Payment method</span><strong>{{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Payment status</span><strong>{{ ucfirst((string) $invoice->payment_status) }}</strong></div>
@@ -72,11 +72,19 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($lineItems as $line)
+                                @php
+                                    $displayLines = \App\Support\InvoiceLinePresenter::displayLines($invoice);
+                                @endphp
+                                @forelse($displayLines as $line)
                                     <tr>
-                                        <td>{{ $line['description'] ?? 'Service' }}</td>
-                                        <td class="small text-break">{{ $line['publisher_website'] ?? $line['reference'] ?? $line['site_url'] ?? '—' }}</td>
-                                        <td class="text-end text-nowrap">{{ format_money($line['line_total'] ?? $line['total'] ?? 0) }}</td>
+                                        <td>
+                                            {{ $line['description'] ?? 'Service' }}
+                                            @if(!empty($line['live_url']))
+                                                <div class="small text-break mt-1">Live URL: <a href="{{ $line['live_url'] }}">{{ $line['live_url'] }}</a></div>
+                                            @endif
+                                        </td>
+                                        <td class="small text-break">{{ ($invoice->isDepositReceipt() || $invoice->isWithdrawalPayout()) ? ($line['reference'] ?? '—') : ($line['website'] ?? '—') }}</td>
+                                        <td class="text-end text-nowrap">{{ format_money($line['line_total'] ?? 0) }}</td>
                                     </tr>
                                 @empty
                                     <tr>

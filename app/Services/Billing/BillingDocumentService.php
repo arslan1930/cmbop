@@ -511,10 +511,13 @@ class BillingDocumentService
                 $service .= ' + 12-month link guarantee';
             }
 
+            $liveUrl = \App\Support\MailNotificationPresenter::safeLiveUrl($item->live_url ?? null);
+
             return [
                 'description' => $service,
-                'publisher_website' => $item->site_name ?: $item->site_url,
+                'site_name' => $item->site_name,
                 'site_url' => $item->site_url,
+                'live_url' => $liveUrl,
                 'quantity' => $qty,
                 'unit_price' => $unit,
                 'line_total' => $unit * $qty,

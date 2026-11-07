@@ -43,8 +43,8 @@ class OrderPaymentConfirmed extends PlatformMailable
                 'user' => $this->user,
                 'totalAmount' => $this->totalAmount,
                 'orderItems' => $this->orderItems,
-                'orderDate' => $this->order->created_at->format('F j, Y \a\t g:i A'),
-                'paidDate' => now()->format('F j, Y \a\t g:i A'),
+                'orderDate' => \App\Support\MailNotificationPresenter::formatDateTime($this->order->created_at),
+                'paidDate' => \App\Support\MailNotificationPresenter::formatDateTime(now()),
             ]);
     }
 }

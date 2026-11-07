@@ -141,7 +141,7 @@ class AddFundsPageUxTest extends TestCase
         $gbpHtml = $this->addFundsHtml($gbp);
         $this->assertStringContainsString('GBP account — send pounds from a UK bank', $gbpHtml);
         $this->assertStringContainsString('Use this GBP account when sending pounds from a UK bank', $gbpHtml);
-        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $gbpHtml);
+        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $gbpHtml);
         $this->assertStringNotContainsString('BE40 9059 9538 0863', $gbpHtml);
         $this->assertStringNotContainsString('TRWIBEB1XXX', $gbpHtml);
     }
@@ -179,7 +179,7 @@ class AddFundsPageUxTest extends TestCase
         ]);
         $html = $this->addFundsHtml();
 
-        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
+        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
         $this->assertStringNotContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
         $this->assertStringNotContainsString('Teqno LTD (operator of SEOLinkBuildings)', $html);
     }

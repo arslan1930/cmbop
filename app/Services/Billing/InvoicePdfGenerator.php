@@ -108,7 +108,7 @@ class InvoicePdfGenerator
 
     private function currentSellerMark(): string
     {
-        $legal = preg_replace('/\s+/', ' ', trim((string) config('billing.company.legal_name'))) ?: '';
+        $legal = preg_replace('/\s+/', ' ', \App\Support\LegalIdentity::issuerName()) ?: '';
         $pay = DepositPaymentConfig::depositPayment();
         $iban = preg_replace('/\s+/', '', (string) ($pay['eur_iban'] ?? $pay['iban'] ?? '')) ?: '';
 

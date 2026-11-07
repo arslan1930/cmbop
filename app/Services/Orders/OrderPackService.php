@@ -978,8 +978,9 @@ class OrderPackService
             }
             $line = [
                 'description' => $desc,
-                'publisher_website' => $item?->site_name ?: ($pack->site?->site_name),
+                'site_name' => $item?->site_name ?: ($pack->site?->site_name),
                 'site_url' => $item?->site_url ?: ($pack->site?->site_url),
+                'live_url' => \App\Support\MailNotificationPresenter::safeLiveUrl($item?->live_url),
                 'quantity' => 1,
                 'unit_price' => $amount,
                 'line_total' => $amount,

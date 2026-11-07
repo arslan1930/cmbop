@@ -294,8 +294,10 @@ class InvoiceController extends Controller
         foreach ($data['orderItems'] as $item) {
             $price = round((float) ($item['price'] ?? 0), 2);
             $lines[] = [
-                'description' => $item['site_name'] ?? 'Guest post',
-                'publisher_website' => $item['site_url'] ?? '',
+                'description' => 'Guest post / sponsored placement',
+                'site_name' => $item['site_name'] ?? null,
+                'site_url' => $item['site_url'] ?? '',
+                'live_url' => \App\Support\MailNotificationPresenter::safeLiveUrl($item['live_url'] ?? null),
                 'quantity' => 1,
                 'unit_price' => $price,
                 'line_total' => $price,

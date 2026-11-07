@@ -15,6 +15,17 @@ width: 100% !important;
 .footer {
 width: 100% !important;
 }
+
+.table td:first-child,
+.table th:first-child {
+white-space: normal !important;
+width: 34% !important;
+}
+
+.mail-summary-label {
+white-space: normal !important;
+width: 34% !important;
+}
 }
 
 @media only screen and (max-width: 500px) {

@@ -10,8 +10,7 @@ The advertiser has requested modifications for Order #{{ $order->order_number }}
 > {{ $reason }}
 
 ## Order Details:
-- Order Number: {{ $order->order_number }}
-- Reference Code: {{ $order->reference_code }}
+- Order number: #{{ $order->order_number }}
 - Status: Processing (awaiting your updates)
 
 ## Next Steps:

@@ -9,7 +9,7 @@ return [
     */
     'company' => [
         'name' => env('BILLING_COMPANY_NAME') ?: 'SEOLinkBuildings',
-        'legal_name' => env('BILLING_LEGAL_NAME') ?: 'SEOLinkBuildings Partners with (Teqno LTD)',
+        'legal_name' => env('BILLING_LEGAL_NAME') ?: 'Teqno Ltd trading as SEOLinkBuildings',
         'address_lines' => array_values(array_filter([
             env('BILLING_ADDRESS_LINE1') ?: '20 Wenlock Road, London, England, N1 7GU',
             env('BILLING_ADDRESS_LINE2') ?: null,

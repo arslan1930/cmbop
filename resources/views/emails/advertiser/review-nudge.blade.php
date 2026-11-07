@@ -5,8 +5,9 @@ Hi {{ $firstName }},
 
 The publisher has submitted the live link for your guest post on {{ $siteName }} (order #{{ $order->order_number }}).
 
-@if($liveUrl)
-Live URL: [{{ $liveUrl }}]({{ $liveUrl }})
+@php $safeLive = \App\Support\MailNotificationPresenter::safeLiveUrl($liveUrl ?? null); @endphp
+@if($safeLive)
+Live article URL: [{{ $safeLive }}]({{ $safeLive }})
 @endif
 
 Worth a quick check: that the anchor text and target URL are right, the link is not marked nofollow when you paid for dofollow, and the article reads as agreed.
@@ -15,7 +16,7 @@ Worth a quick check: that the anchor text and target URL are right, the link is 
 Check and approve
 @endcomponent
 
-If nothing needs changing you do not have to do anything — the order completes automatically on {{ $autoCompletesAt->format('j M \a\t H:i') }} and the publisher is paid. If something is wrong, request changes before then and the publisher has to fix it first.
+If nothing needs changing you do not have to do anything — the order completes automatically on {{ \App\Support\MailNotificationPresenter::formatDateTime($autoCompletesAt) }} and the publisher is paid. If something is wrong, request changes from the order page before then.
 
 Thanks,<br>
 {{ config('app.name') }}

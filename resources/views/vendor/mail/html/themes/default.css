@@ -201,14 +201,40 @@ img {
     border-bottom: 1px solid #e4e4e7;
     margin: 0;
     padding-bottom: 8px;
+    color: #1a585e;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .table td {
-    color: #52525b;
+    color: #334155;
     font-size: 15px;
-    line-height: 18px;
+    line-height: 1.45;
     margin: 0;
-    padding: 10px 0;
+    padding: 10px 8px 10px 0;
+    vertical-align: top;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.table th:first-child,
+.table td:first-child {
+    width: 38%;
+    color: #1a585e;
+    font-weight: 600;
+    padding-right: 12px;
+    white-space: nowrap;
+}
+
+.table td:last-child {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.mail-url {
+    color: #1a585e;
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 .content-cell {

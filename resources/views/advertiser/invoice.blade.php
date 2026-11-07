@@ -230,7 +230,7 @@
             <h1>INVOICE #{{ $referenceCode }}</h1>
             <!-- Date -->
             <div style="margin-top: 10px; color: #4b5563;">
-                <span><strong>Date:</strong> {{ \Carbon\Carbon::now()->format('F j, Y') }}</span>
+                <span><strong>Date:</strong> {{ \App\Support\MailNotificationPresenter::formatDateTime(now()) }}</span>
                 @if(!empty($paymentMethod))
                     <span style="margin-left: 16px;"><strong>Payment method:</strong> {{ \App\Models\Invoice::paymentMethodLabel($paymentMethod) }}</span>
                 @endif
@@ -252,7 +252,7 @@
                         <img src="{{ $invoiceLogo }}" alt="{{ $company['name'] ?? 'SEOLinkBuildings' }}" class="company-logo">
                         <div class="company-details">
                             @if($isDepositInvoice)
-                                <p><strong>Seller / Service Provider:</strong> {{ $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)' }}</p>
+                                <p><strong>Seller / Service Provider:</strong> {{ $company['issuer_name'] ?? ($company['legal_name'] ?? 'Teqno Ltd trading as SEOLinkBuildings') }}</p>
                                 @foreach(($company['address_lines'] ?? []) as $line)
                                     <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
                                 @endforeach
@@ -320,7 +320,7 @@
                                     'methodSwitchAsLinks' => true,
                                 ])
                             @else
-                                <p><strong>Seller / Service Provider:</strong> {{ $company['legal_name'] ?? $company['name'] ?? 'SEOLinkBuildings' }}</p>
+                                <p><strong>Seller / Service Provider:</strong> {{ $company['issuer_name'] ?? ($company['legal_name'] ?? 'Teqno Ltd trading as SEOLinkBuildings') }}</p>
                                 @foreach(($company['address_lines'] ?? []) as $line)
                                     <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
                                 @endforeach
@@ -379,6 +379,10 @@
                             <strong>{{ $item['site_name'] }}</strong>
                             @if(isset($item['site_url']))
                                 <br><small style="color: #6b7280;">{{ $item['site_url'] }}</small>
+                            @endif
+                            @php $itemLiveUrl = \App\Support\MailNotificationPresenter::safeLiveUrl($item['live_url'] ?? null); @endphp
+                            @if($itemLiveUrl)
+                                <br><small style="word-break:break-all;">Live URL: <a href="{{ $itemLiveUrl }}">{{ $itemLiveUrl }}</a></small>
                             @endif
                             @if(isset($item['sensitive_type']) && $item['sensitive_type'])
                                 <br><small style="color: #16a34a;"><i class="fa fa-plus-circle"></i> {{ ucfirst($item['sensitive_type']) }} price included</small>
@@ -455,6 +459,7 @@
             <div class="footer">
                 <p>Thank you for your business!</p>
                 <p>For any questions regarding this invoice, please contact support@seolinkbuildings.com</p>
+                <p>{{ $company['legal_footer'] ?? \App\Support\LegalIdentity::footer() }}</p>
             </div>
 
             @if(($invoiceType ?? '') === 'deposit' && in_array(($paymentMethod ?? ''), ['wise', 'bank', 'crypto'], true))

@@ -1,6 +1,6 @@
 @component('mail::message')
 
-# Payment Confirmed! 🎉
+# Payment confirmed
 
 Hello {{ $user->name }},
 
