@@ -21,7 +21,7 @@ class DepositPaymentConfig
 
     public const EUR_SEPA_NOTE = 'SEPA payers need only the IBAN.';
 
-    public const BENEFICIARY_DISPLAY = 'Teqno Ltd trading as SEOLinkBuildings';
+    public const BENEFICIARY_DISPLAY = 'Teqno Ltd';
 
     public static function isUsdCurrencyUser(?User $user = null, ?string $walletCurrency = null): bool
     {
@@ -82,7 +82,8 @@ class DepositPaymentConfig
     }
 
     /**
-     * Teqno Ltd on bank panels, invoices, and deposit emails.
+     * Bank-transfer payee. Keep this as the Companies House name, not invoice
+     * partner branding — wire instructions must match the account holder.
      *
      * @param  array<string, mixed>|null  $pay
      */

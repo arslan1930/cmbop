@@ -115,7 +115,8 @@ class AccountCurrencyLockTest extends TestCase
         $this->assertStringContainsString('data-bank-rail="gbp"', $html);
         $this->assertStringContainsString('23-08-01', $html);
         $this->assertStringContainsString('32932194', $html);
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Teqno Ltd', $html);
+        $this->assertStringNotContainsString('partner of SEOLinkBuildings', $html);
         $this->assertStringNotContainsString('data-bank-rail="eur"', $html);
         $this->assertStringNotContainsString('id="bankIban"', $html);
         $this->assertStringNotContainsString('BE40 9059 9538 0863', $html);
@@ -166,7 +167,8 @@ class AccountCurrencyLockTest extends TestCase
 
         $this->assertStringContainsString('data-bank-rail="eur"', $html);
         $this->assertStringContainsString('id="bankIban"', $html);
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Teqno Ltd', $html);
+        $this->assertStringNotContainsString('partner of SEOLinkBuildings', $html);
         $this->assertStringContainsString('BE40 9059 9538 0863', $html);
         $this->assertStringContainsString('TRWIBEB1XXX', $html);
         $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
@@ -230,7 +232,7 @@ class AccountCurrencyLockTest extends TestCase
             ->getContent();
         $this->assertStringContainsString('SLB-'.$deposit->id.'-GBP', $invoice);
         $this->assertStringContainsString('Put this reference in the payment reference', $invoice);
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $invoice);
+        $this->assertStringContainsString('Teqno Ltd — partner of SEOLinkBuildings', $invoice);
         $this->assertStringContainsString('23-08-01', $invoice);
         $this->assertStringNotContainsString('GB30 TRWI', $invoice);
         $this->assertStringNotContainsString('BE40 9059 9538 0863', $invoice);

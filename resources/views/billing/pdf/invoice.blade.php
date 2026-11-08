@@ -148,7 +148,7 @@
                 <img src="{{ $logoDataUri }}" alt="{{ $company['name'] ?? 'SEOLinkBuildings' }}" style="height:42px;width:auto;max-width:220px;margin:0 0 10px 0;display:block;">
             @endif
             <p class="brand-name">{{ $company['name'] ?? 'SEOLinkBuildings' }}</p>
-            <div class="muted">{{ $company['issuer_name'] ?? ($company['legal_name'] ?? 'Teqno Ltd trading as SEOLinkBuildings') }}</div>
+            <div class="muted">{{ $company['issuer_name'] ?? ($company['legal_name'] ?? \App\Support\LegalIdentity::ISSUER_NAME) }}</div>
             @foreach(($company['address_lines'] ?? []) as $line)
                 <div class="muted">{{ $line }}</div>
             @endforeach

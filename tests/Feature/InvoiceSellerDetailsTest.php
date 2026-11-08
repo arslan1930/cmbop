@@ -53,8 +53,8 @@ class InvoiceSellerDetailsTest extends TestCase
             'totalSensitiveAmount' => 0,
         ])->render();
 
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
-        $this->assertStringContainsString('SEOLinkBuildings is a trading name of Teqno Ltd. Registered in England and Wales. Company number: 17392540.', $html);
+        $this->assertStringContainsString('Teqno Ltd — partner of SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Teqno Ltd — partner of SEOLinkBuildings. Registered in England and Wales. Company number: 17392540.', $html);
         $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
         $this->assertStringContainsString('Registration No:', $html);
         $this->assertStringContainsString('17392540', $html);
@@ -94,11 +94,14 @@ class InvoiceSellerDetailsTest extends TestCase
             'markPaidUrl' => null,
         ])->render();
 
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Seller / Service Provider:</strong> Teqno Ltd — partner of SEOLinkBuildings', $html);
         $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
         $this->assertStringContainsString('Registration No:', $html);
-        $this->assertStringContainsString('Beneficiary:', $html);
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Beneficiary:</strong> Teqno Ltd', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/Beneficiary:<\/strong>\s*Teqno Ltd — partner of SEOLinkBuildings/',
+            $html
+        );
         $this->assertStringContainsString('TRWIBEB1XXX', $html);
         $this->assertStringContainsString('BE40 9059 9538 0863', $html);
         $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
@@ -158,8 +161,8 @@ class InvoiceSellerDetailsTest extends TestCase
             'currencySymbol' => '€',
         ])->render();
 
-        $this->assertStringContainsString('Teqno Ltd trading as SEOLinkBuildings', $html);
-        $this->assertStringContainsString('SEOLinkBuildings is a trading name of Teqno Ltd. Registered in England and Wales. Company number: 17392540.', $html);
+        $this->assertStringContainsString('Teqno Ltd — partner of SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Teqno Ltd — partner of SEOLinkBuildings. Registered in England and Wales. Company number: 17392540.', $html);
         $this->assertStringContainsString('Registration No: 17392540', $html);
         $this->assertStringContainsString('Not VAT registered', $html);
         $this->assertStringContainsString('20 Wenlock Road', $html);

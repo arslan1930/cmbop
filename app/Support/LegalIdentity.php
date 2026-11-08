@@ -3,10 +3,12 @@
 namespace App\Support;
 
 /**
- * Canonical issuer / brand copy for invoices and transactional mail.
+ * Invoice-only issuer branding. Do not print this on transactional mail.
  *
- * Companies House entity is Teqno Ltd (17392540). SEOLinkBuildings is the
- * trading name. Leftover "Partners with (Teqno LTD)" is not a legal name.
+ * Companies House entity is Teqno Ltd (17392540). Owner-chosen invoice
+ * branding is "Teqno Ltd — partner of SEOLinkBuildings". That is branding,
+ * not a formal legal-partnership claim. Leftover "Partners with (Teqno LTD)"
+ * is not a legal name.
  *
  * VAT non-registration is whatever billing config currently says — this class
  * does not invent or change tax status.
@@ -15,26 +17,27 @@ class LegalIdentity
 {
     public const LEGAL_ENTITY = 'Teqno Ltd';
 
-    public const TRADING_NAME = 'SEOLinkBuildings';
+    public const BRAND_NAME = 'SEOLinkBuildings';
 
     public const COMPANY_NUMBER = '17392540';
 
-    public const ISSUER_NAME = 'Teqno Ltd trading as SEOLinkBuildings';
+    public const ISSUER_NAME = 'Teqno Ltd — partner of SEOLinkBuildings';
 
-    public const FOOTER = 'SEOLinkBuildings is a trading name of Teqno Ltd. Registered in England and Wales. Company number: 17392540.';
+    public const FOOTER = 'Teqno Ltd — partner of SEOLinkBuildings. Registered in England and Wales. Company number: 17392540.';
 
     public static function issuerName(): string
     {
         $configured = trim((string) config('company.legal_name', self::LEGAL_ENTITY));
-        $entity = ($configured !== '' && ! self::isMisleadingPartnerWording($configured))
-            ? $configured
-            : self::LEGAL_ENTITY;
-
-        if (strcasecmp($entity, self::LEGAL_ENTITY) === 0) {
+        if ($configured === '' || self::isMisleadingPartnerWording($configured)) {
             return self::ISSUER_NAME;
         }
 
-        return $entity.' trading as '.self::TRADING_NAME;
+        if (strcasecmp($configured, self::LEGAL_ENTITY) === 0
+            || strcasecmp($configured, self::ISSUER_NAME) === 0) {
+            return self::ISSUER_NAME;
+        }
+
+        return $configured;
     }
 
     public static function footer(): string
@@ -48,8 +51,7 @@ class LegalIdentity
             return self::FOOTER;
         }
 
-        return self::TRADING_NAME.' is a trading name of '.self::LEGAL_ENTITY
-            .'. Registered in England and Wales. Company number: '.$number.'.';
+        return self::ISSUER_NAME.'. Registered in England and Wales. Company number: '.$number.'.';
     }
 
     public static function isMisleadingPartnerWording(?string $value): bool
@@ -60,12 +62,12 @@ class LegalIdentity
         }
 
         return str_contains($value, 'partners with')
-            || str_contains($value, 'partners seolinkbuildings')
-            || str_contains($value, '(partners seolinkbuildings)');
+            || str_contains($value, 'trading as')
+            || str_contains($value, 'trading name of');
     }
 
     /**
-     * Normalize a stored or configured seller string for customer documents.
+     * Normalize a stored or configured seller string for customer invoices.
      */
     public static function normalizeLegalName(?string $value): string
     {

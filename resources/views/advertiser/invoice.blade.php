@@ -252,7 +252,7 @@
                         <img src="{{ $invoiceLogo }}" alt="{{ $company['name'] ?? 'SEOLinkBuildings' }}" class="company-logo">
                         <div class="company-details">
                             @if($isDepositInvoice)
-                                <p><strong>Seller / Service Provider:</strong> {{ $company['issuer_name'] ?? ($company['legal_name'] ?? 'Teqno Ltd trading as SEOLinkBuildings') }}</p>
+                                <p><strong>Seller / Service Provider:</strong> {{ $company['issuer_name'] ?? ($company['legal_name'] ?? \App\Support\LegalIdentity::ISSUER_NAME) }}</p>
                                 @foreach(($company['address_lines'] ?? []) as $line)
                                     <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
                                 @endforeach
@@ -320,7 +320,7 @@
                                     'methodSwitchAsLinks' => true,
                                 ])
                             @else
-                                <p><strong>Seller / Service Provider:</strong> {{ $company['issuer_name'] ?? ($company['legal_name'] ?? 'Teqno Ltd trading as SEOLinkBuildings') }}</p>
+                                <p><strong>Seller / Service Provider:</strong> {{ $company['issuer_name'] ?? ($company['legal_name'] ?? \App\Support\LegalIdentity::ISSUER_NAME) }}</p>
                                 @foreach(($company['address_lines'] ?? []) as $line)
                                     <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
                                 @endforeach

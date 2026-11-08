@@ -37,11 +37,15 @@ class MailNotificationPresenterTest extends TestCase
     public function test_legal_identity_normalizes_partners_with_wording(): void
     {
         $this->assertTrue(LegalIdentity::isMisleadingPartnerWording('SEOLinkBuildings Partners with (Teqno LTD)'));
+        $this->assertTrue(LegalIdentity::isMisleadingPartnerWording('Teqno Ltd trading as SEOLinkBuildings'));
         $this->assertSame(
-            'Teqno Ltd trading as SEOLinkBuildings',
+            LegalIdentity::ISSUER_NAME,
             LegalIdentity::normalizeLegalName('SEOLinkBuildings Partners with (Teqno LTD)')
         );
-        $this->assertStringContainsString('trading name of Teqno Ltd', LegalIdentity::footer());
+        $this->assertSame(LegalIdentity::ISSUER_NAME, LegalIdentity::issuerName());
+        $this->assertSame(LegalIdentity::FOOTER, LegalIdentity::footer());
         $this->assertStringContainsString('17392540', LegalIdentity::footer());
+        $this->assertStringNotContainsString('trading as', LegalIdentity::footer());
+        $this->assertStringNotContainsString('trading name', LegalIdentity::footer());
     }
 }

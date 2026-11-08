@@ -8,9 +8,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | legal_name must be the exact Companies House spelling (Teqno Ltd).
-    | Customer invoices/emails use "Teqno Ltd trading as SEOLinkBuildings".
-    | Do not put "Partners with" in this value. 16607074 is a leftover
-    | TOPURLZ LTD number — never pair it with Teqno Ltd.
+    | Customer invoices use "Teqno Ltd — partner of SEOLinkBuildings"
+    | (branding only, not a formal legal-partnership claim). Do not print
+    | that block on transactional email. Do not put leftover "Partners with"
+    | or "trading as" in this value. 16607074 is a leftover TOPURLZ LTD
+    | number — never pair it with Teqno Ltd.
     |
     | Address and support email below are already used on the public site.
     |

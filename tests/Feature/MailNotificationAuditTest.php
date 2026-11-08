@@ -138,7 +138,10 @@ class MailNotificationAuditTest extends TestCase
         $this->assertStringNotContainsString('€135.60', $html);
         $this->assertStringNotContainsString('reply to this email', $html);
         $this->assertStringNotContainsString('/advertiser/orders/approve', $html);
-        $this->assertStringContainsString(LegalIdentity::footer(), $html);
+        $this->assertStringNotContainsString(LegalIdentity::footer(), $html);
+        $this->assertStringNotContainsString('partner of SEOLinkBuildings', $html);
+        $this->assertStringNotContainsString('trading as', $html);
+        $this->assertStringNotContainsString('trading name of', $html);
         $this->assertStringNotContainsString('Partners with', $html);
     }
 
@@ -343,7 +346,7 @@ class MailNotificationAuditTest extends TestCase
         $this->assertStringNotContainsString('https://pack-site.example/article-2', $html);
     }
 
-    public function test_invoice_payment_email_keeps_amount_and_legal_identity(): void
+    public function test_invoice_payment_email_keeps_amount_without_invoice_partner_wording(): void
     {
         $invoice = Invoice::create([
             'user_id' => $this->advertiser->id,
@@ -370,7 +373,8 @@ class MailNotificationAuditTest extends TestCase
 
         $html = (new PaymentSuccessfulInvoiceMail($invoice->fresh(['user', 'order'])))->render();
         $this->assertStringContainsString('€135.60', $html);
-        $this->assertStringContainsString(LegalIdentity::footer(), $html);
+        $this->assertStringNotContainsString(LegalIdentity::footer(), $html);
+        $this->assertStringNotContainsString('partner of SEOLinkBuildings', $html);
         $this->assertStringNotContainsString('Partners with', $html);
         $this->assertMatchesRegularExpression('/\b(UTC|GMT)\b/', $html);
     }
