@@ -244,6 +244,21 @@ class InAppNotification extends Model
     }
 
     /**
+     * Hide order-status rows replaced by a newer live-status bell.
+     * Does not delete; meta.superseded_at is the marker.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeNotSuperseded($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('meta')
+                ->orWhereNull('meta->superseded_at');
+        });
+    }
+
+    /**
      * Leftover Hostinger archived_at is not a real archive. whereNull
      * hid those bells from the inbox and badge.
      *

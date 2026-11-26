@@ -16,7 +16,13 @@
     $liveUrl = $item['live_url'] ?? null;
     $showTools = $showTools ?? false;
     $icon = $item['icon'] ?? 'bell';
-    $favicon = $item['favicon_url'] ?? null;
+    $thumb = $item['thumb_url'] ?? ($item['favicon_url'] ?? null);
+    $siteInitial = $item['site_initial'] ?? '';
+    $titlePrimary = $item['title_primary'] ?? ($item['title'] ?? '');
+    $orderRef = $item['order_ref'] ?? null;
+    $isLifecycle = !empty($item['is_lifecycle']);
+    $isMessage = !empty($item['is_message']);
+    $liveUrlLabel = __('messages.nc_live_url');
     $timeLabel = $item['display_time']
         ?? $item['clock_time']
         ?? $item['relative_time']
@@ -45,10 +51,12 @@
      @if($eventIdsAttr !== '') data-nc-ids="{{ $eventIdsAttr }}" @endif
      @if($url) data-nc-url="{{ $url }}" @endif>
 
-    <div class="nc-icon" aria-hidden="true">
-        @if($favicon)
-            <img src="{{ $favicon }}" alt="" class="nc-favicon" width="18" height="18" loading="lazy" decoding="async" data-nc-favicon>
-            <span class="nc-icon-fallback" hidden>@include('partials.notification-icon', ['name' => $icon])</span>
+    <div class="nc-icon nc-thumb" aria-hidden="true">
+        @if($thumb)
+            <img src="{{ $thumb }}" alt="" class="nc-favicon" width="40" height="40" loading="lazy" decoding="async" data-nc-favicon>
+            <span class="nc-thumb-fallback" hidden>{{ $siteInitial !== '' ? $siteInitial : 'S' }}</span>
+        @elseif($siteInitial !== '')
+            <span class="nc-thumb-fallback">{{ $siteInitial }}</span>
         @else
             @include('partials.notification-icon', ['name' => $icon])
         @endif
@@ -56,9 +64,14 @@
 
     <div class="nc-item-main">
         <div class="nc-item-title-row">
-            <p class="nc-item-title">{{ $item['title'] ?? '' }}</p>
+            <p class="nc-item-title">
+                {{ $titlePrimary }}
+                @if($orderRef)
+                    <span class="nc-order-ref">{{ $orderRef }}</span>
+                @endif
+            </p>
             @if($actionNeeded)
-                <span class="nc-action-tag">Action needed</span>
+                <span class="nc-action-tag">{{ __('messages.nc_action_needed') }}</span>
             @endif
         </div>
         @if(!empty($item['message']))
@@ -72,9 +85,9 @@
         @elseif(!empty($item['timeline']) && is_array($item['timeline']))
             @include('partials.order-lifecycle-stepper', ['stepper' => ['steps' => $item['timeline'], 'current' => 0]])
         @endif
-        @if($isGroup && !empty($item['events']) && count($item['events']) > 1)
+        @if(!$isLifecycle && $isGroup && !empty($item['events']) && count($item['events']) > 1)
             <details class="nc-group-details">
-                <summary>{{ count($item['events']) }} updates</summary>
+                <summary>{{ __('messages.nc_updates', ['count' => count($item['events'])]) }}</summary>
                 <ul class="nc-group-events">
                     @foreach($item['events'] as $event)
                         <li>
@@ -100,8 +113,8 @@
                 <a class="nc-item-action" href="{{ $url }}" data-nc-primary-action
                    @isset($onclick) onclick="{{ $onclick }}" @endisset>{{ $item['action_label'] ?? 'View details' }} →</a>
             @endif
-            @if($liveUrl)
-                <a class="nc-open-link" href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">Open link</a>
+            @if($liveUrl && !$isMessage)
+                <a class="nc-open-link" href="{{ $liveUrl }}" target="_blank" rel="noopener noreferrer">{{ $liveUrlLabel }}</a>
             @endif
         </div>
     </div>

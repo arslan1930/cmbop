@@ -530,16 +530,50 @@ a.nc-item:focus {
   color: #8a4b00;
 }
 
+.nc-thumb {
+  width: 40px;
+  height: 40px;
+  margin-top: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--nc-bg-soft, #eef3f4);
+  color: var(--nc-primary-strong, #1a585e);
+}
+
 .nc-favicon {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  object-fit: contain;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
   display: block;
 }
 
+.nc-thumb-fallback {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--nc-primary-strong, #1a585e);
+  background: var(--nc-primary-soft, #e6f5f5);
+}
+
+.nc-thumb-fallback[hidden],
 .nc-icon-fallback[hidden] {
   display: none !important;
+}
+
+.nc-order-ref {
+  display: inline;
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--nc-fg-subtle, #94a3b8);
 }
 
 .nc-timeline {
@@ -635,7 +669,7 @@ a.nc-item:focus {
   border: 1px solid var(--nc-primary-border, #b8e4e4);
   border-radius: 999px;
   padding: 1px 8px;
-  background: #fff;
+  background: var(--nc-bg, #fff);
   line-height: 1.4;
 }
 
@@ -673,16 +707,17 @@ a.nc-item-action {
 
 /* Monochrome Lucide icons — inherit text color, adapt with theme */
 .nc-icon {
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
+  width: 40px;
+  height: 40px;
+  margin-top: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--nc-fg-muted);
-  background: transparent;
-  border-radius: 0;
+  background: var(--nc-bg-soft, #eef3f4);
+  border-radius: 8px;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .nc-item.is-unread .nc-icon {
@@ -1215,4 +1250,49 @@ body.layout-dark .nc-panel {
   background: #1e1e2f;
   border-color: #3a3a55;
   color: #f3f4f6;
+}
+
+body.layout-dark .nc-thumb,
+body.layout-dark .nc-icon {
+  background: #252536;
+}
+
+body.layout-dark .nc-thumb-fallback {
+  background: #24353a;
+  color: #9fd8db;
+}
+
+body.layout-dark .nc-order-ref {
+  color: #7a7a90;
+}
+
+body.layout-dark .nc-open-link {
+  background: #252536;
+  border-color: #3a3a55;
+}
+
+body.layout-dark .nc-item.is-unread {
+  background: rgba(63, 174, 178, 0.16);
+  border-left-color: #3faeb2;
+}
+
+body.layout-dark .nc-item.is-action-needed {
+  background: linear-gradient(90deg, rgba(63, 174, 178, 0.22) 0%, #1e1e2f 55%);
+}
+
+body.layout-dark .nc-item.is-action-needed.is-unread {
+  background: linear-gradient(90deg, rgba(63, 174, 178, 0.28) 0%, rgba(63, 174, 178, 0.12) 55%);
+}
+
+body.layout-dark .nc-item-title {
+  color: #f3f4f6 !important;
+}
+
+body.layout-dark .nc-item:not(.is-unread) .nc-item-title {
+  color: #d1d5db !important;
+}
+
+body.layout-dark .nc-action-tag {
+  color: #fbbf24;
+  background: #3a2e12;
 }

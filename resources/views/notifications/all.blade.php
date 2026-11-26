@@ -10,13 +10,15 @@
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 nc-page-header">
         <div>
             <h2>All notifications</h2>
-            <p>
+            <p class="nc-page-subtitle">
                 @if($unreadCount > 0)
                     <span class="pulse-badge is-pulsing d-inline-flex align-items-center justify-content-center rounded-pill text-white me-1"
                           style="min-width:18px;height:18px;padding:0 5px;font-size:10px;font-weight:700;background:#dc3545;">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
-                    unread
+                    {{ $unreadCount === 1 ? __('messages.nc_unread_one') : __('messages.nc_unread_many', ['count' => $unreadCount]) }}
+                @elseif(($notifications->total() ?? 0) > 0 || !empty($cards))
+                    {{ __('messages.nc_no_unread') }}
                 @else
-                    All caught up
+                    {{ __('messages.nc_all_caught_up') }}
                 @endif
                 @if($notifications->total())
                     <span class="text-muted"> · {{ $notifications->total() }} total</span>

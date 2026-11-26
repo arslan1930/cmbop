@@ -92,28 +92,45 @@ class InAppNotificationPresenter
         );
         $autoApproveLabel = $this->autoApproveLabel($base['type'] ?? '', $meta, $item, $notification->created_at, $order);
         $timelineStep = $this->timelineStepForType($base['type'] ?? '');
+        $siteName = $this->resolveSiteName($meta, $site, $item);
+        $isMessage = $this->isMessageType((string) ($base['type'] ?? ''), (string) ($base['category'] ?? ''));
+        $isLifecycle = InAppNotificationService::isLifecycleNotification(
+            (string) ($base['type'] ?? ''),
+            (string) ($base['category'] ?? '')
+        );
 
         $base['action_needed'] = $actionNeeded;
         $base['auto_approve_label'] = $autoApproveLabel;
-        $base['live_url'] = $liveUrl;
         $base['site_domain'] = $domain;
-        $base['favicon_url'] = $this->faviconUrl($domain, $site);
+        $base['site_name'] = $siteName;
+        $base['site_initial'] = $this->siteInitial($siteName, $domain);
+        $thumb = $this->thumbUrl($domain, $site);
+        $base['thumb_url'] = $thumb;
+        $base['favicon_url'] = $thumb;
         $base['order_id'] = $this->orderId($notification, $order, $meta);
         $base['order_number'] = $meta['order_number'] ?? $order?->order_number;
+        $base['order_ref'] = $this->orderRef($base['order_number'] ?? null);
         $base['order_pack_id'] = $meta['order_pack_id'] ?? $order?->order_pack_id;
+        $base['is_message'] = $isMessage;
+        $base['is_lifecycle'] = $isLifecycle;
         $base['group_key'] = $this->groupKey($base);
         $base['timeline_step'] = $timelineStep;
         $base['display_time'] = $this->displayTime($notification->created_at);
         $base['clock_time'] = $this->clockTime($notification->created_at);
         $base['day_group'] = $this->dayGroup($notification->created_at);
         $base['lifecycle_stepper'] = null;
-        if ($order && ($base['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS) {
+        if ($isLifecycle && $order && ! $this->orderIsRejected($order, (string) ($base['type'] ?? ''))) {
             try {
                 $base['lifecycle_stepper'] = AdvertiserOrderStatus::lifecycleStepper($order, $item);
             } catch (\Throwable) {
                 $base['lifecycle_stepper'] = null;
             }
         }
+
+        $this->applyLiveCopy($base, $order, $item, $meta, $notification);
+        $base['live_url'] = ($isMessage || ! $this->shouldShowLiveUrl($order, $item, $liveUrl))
+            ? null
+            : $liveUrl;
 
         return $base;
     }
@@ -232,9 +249,18 @@ class InAppNotificationPresenter
             'action_needed' => $anyAction || ! empty($latest['action_needed']),
             'timeline' => $timeline,
             'lifecycle_stepper' => $lifecycle,
+            'is_lifecycle' => ! empty($latest['is_lifecycle']),
+            'is_message' => ! empty($latest['is_message']),
+            'title_primary' => $latest['title_primary'] ?? ($latest['title'] ?? ''),
+            'order_ref' => $latest['order_ref'] ?? null,
+            'site_initial' => $latest['site_initial'] ?? null,
+            'thumb_url' => collect($events)->first(fn ($e) => ! empty($e['thumb_url']))['thumb_url']
+                ?? ($latest['thumb_url'] ?? null),
             // Prefer live URL / auto-approve from the most relevant event in the stack.
-            'live_url' => collect($events)->first(fn ($e) => ! empty($e['live_url']))['live_url']
-                ?? ($latest['live_url'] ?? null),
+            'live_url' => (! empty($latest['is_message']))
+                ? null
+                : (collect($events)->first(fn ($e) => ! empty($e['live_url']))['live_url']
+                    ?? ($latest['live_url'] ?? null)),
             'auto_approve_label' => collect($events)->first(fn ($e) => ! empty($e['auto_approve_label']))['auto_approve_label']
                 ?? ($latest['auto_approve_label'] ?? null),
             'favicon_url' => collect($events)->first(fn ($e) => ! empty($e['favicon_url']))['favicon_url']
@@ -428,6 +454,302 @@ class InAppNotificationPresenter
         return null;
     }
 
+    protected function shouldShowLiveUrl(?Order $order, ?OrderItem $item, ?string $url): bool
+    {
+        if (! is_string($url) || $url === '' || ! Str::startsWith($url, ['http://', 'https://'])) {
+            return false;
+        }
+        $status = strtolower((string) ($order?->status ?? ''));
+        if (in_array($status, ['review', 'completed'], true)) {
+            return true;
+        }
+        if ($item && filled($item->live_url) && in_array($status, ['review', 'completed', 'in_progress'], true)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $base
+     * @param  array<string, mixed>  $meta
+     */
+    protected function applyLiveCopy(array &$base, ?Order $order, ?OrderItem $item, array $meta, InAppNotification $notification): void
+    {
+        $siteName = (string) ($base['site_name'] ?? '');
+        $orderRef = $base['order_ref'] ?? $this->orderRef($base['order_number'] ?? null);
+        $isMessage = ! empty($base['is_message']);
+        $isLifecycle = ! empty($base['is_lifecycle']);
+
+        if ($isMessage) {
+            $primary = $siteName !== '' ? $siteName : (string) ($base['title'] ?? '');
+            $base['title_primary'] = $primary;
+            $base['order_ref'] = $orderRef;
+            $base['title'] = $primary;
+            $base['message'] = $this->prefixedMessage(
+                (string) ($base['message'] ?? ''),
+                $order,
+                $meta,
+                (string) ($notification->audience ?? '')
+            );
+
+            return;
+        }
+
+        if (! $isLifecycle || ! $order) {
+            $base['title_primary'] = (string) ($base['title'] ?? '');
+            $base['order_ref'] = $orderRef;
+
+            return;
+        }
+
+        $statusKey = $this->liveStatusKey($order, (string) ($base['type'] ?? ''));
+        $statusLabel = $this->statusLabel($statusKey);
+        $primary = $siteName !== ''
+            ? __('messages.nc_title_with_status', ['site' => $siteName, 'status' => $statusLabel])
+            : $statusLabel;
+        $base['title_primary'] = $primary;
+        $base['order_ref'] = $orderRef;
+        $base['title'] = $primary;
+        $base['status_key'] = $statusKey;
+        $base['status_label'] = $statusLabel;
+
+        $storedStep = $this->timelineStepForType((string) ($base['type'] ?? ''));
+        if ($statusKey === 'rejected') {
+            $storedStep = 'rejected';
+        }
+        if ($statusKey && $storedStep === $statusKey) {
+            return;
+        }
+
+        $audience = strtolower((string) ($notification->audience ?? ''));
+        $rewritten = $this->liveStatusBody($statusKey, $siteName, $audience, $item);
+        if ($rewritten !== null) {
+            $base['message'] = $rewritten;
+        }
+    }
+
+    protected function liveStatusKey(?Order $order, string $type): string
+    {
+        if ($this->orderIsRejected($order, $type)) {
+            return 'rejected';
+        }
+        if (! $order) {
+            return match ($type) {
+                InAppNotificationService::TYPE_ORDER_CREATED,
+                InAppNotificationService::TYPE_PAYMENT_RECEIVED => 'placed',
+                InAppNotificationService::TYPE_ORDER_ACCEPTED => 'accepted',
+                InAppNotificationService::TYPE_GUEST_POST_PUBLISHED => 'published',
+                InAppNotificationService::TYPE_ORDER_COMPLETED => 'approved',
+                InAppNotificationService::TYPE_ORDER_REJECTED => 'rejected',
+                default => 'placed',
+            };
+        }
+
+        try {
+            $stepper = AdvertiserOrderStatus::lifecycleStepper($order, $order->items->first());
+            $current = (int) ($stepper['current'] ?? 1);
+        } catch (\Throwable) {
+            $current = 1;
+        }
+
+        return match ($current) {
+            4 => 'approved',
+            3 => 'published',
+            2 => 'accepted',
+            default => 'placed',
+        };
+    }
+
+    protected function statusLabel(string $key): string
+    {
+        return match ($key) {
+            'accepted' => __('messages.nc_site_accepted'),
+            'published' => __('messages.nc_site_published'),
+            'approved' => __('messages.nc_site_approved'),
+            'rejected' => __('messages.nc_site_rejected'),
+            default => __('messages.nc_site_placed'),
+        };
+    }
+
+    protected function liveStatusBody(string $statusKey, string $site, string $audience, ?OrderItem $item): ?string
+    {
+        $site = $site !== '' ? $site : 'this site';
+        $publisher = $audience === InAppNotification::AUDIENCE_PUBLISHER;
+
+        $body = match ($statusKey) {
+            'accepted' => $publisher
+                ? __('messages.nc_publisher_accepted_body', ['site' => $site])
+                : __('messages.nc_order_accepted_body', ['site' => $site]),
+            'published' => $publisher
+                ? __('messages.nc_publisher_published_body', ['site' => $site])
+                : __('messages.nc_order_published_body', ['site' => $site]),
+            'approved' => $publisher
+                ? __('messages.nc_publisher_approved_body', ['site' => $site])
+                : __('messages.nc_order_approved_body', ['site' => $site]),
+            'rejected' => $publisher
+                ? __('messages.nc_publisher_rejected_body', ['site' => $site])
+                : __('messages.nc_order_rejected_body', ['site' => $site]),
+            default => $publisher
+                ? __('messages.nc_publisher_placed_body', ['site' => $site])
+                : __('messages.nc_order_placed_body', ['site' => $site]),
+        };
+
+        if ($statusKey === 'accepted' && $item && method_exists($item, 'purchasedPlacementSentence')) {
+            try {
+                $extras = $item->purchasedPlacementSentence();
+                if (is_string($extras) && $extras !== '') {
+                    $body .= ' '.$extras;
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
+
+        return $body;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    protected function prefixedMessage(string $preview, ?Order $order, array $meta, string $audience): string
+    {
+        $preview = trim($preview);
+        if ($preview === '') {
+            return $preview;
+        }
+        if (preg_match('/^(Publisher|Advertiser|Support)\s*:/u', $preview)) {
+            return $preview;
+        }
+
+        $label = $this->senderRoleLabel($order, $meta, $audience);
+        if ($label === '') {
+            return $preview;
+        }
+
+        return __('messages.nc_message_preview', ['sender' => $label, 'preview' => $preview]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    protected function senderRoleLabel(?Order $order, array $meta, string $audience): string
+    {
+        $stored = strtolower(trim((string) ($meta['sender_role'] ?? '')));
+        if (in_array($stored, ['publisher', 'advertiser', 'support'], true)) {
+            return match ($stored) {
+                'publisher' => __('messages.nc_sender_publisher'),
+                'advertiser' => __('messages.nc_sender_advertiser'),
+                default => __('messages.nc_sender_support'),
+            };
+        }
+
+        $senderId = (int) ($meta['sender_id'] ?? 0);
+        if ($order && $senderId > 0) {
+            if ((int) $order->user_id === $senderId) {
+                return __('messages.nc_sender_advertiser');
+            }
+            try {
+                $publisherId = (int) ($order->items->first()?->site?->publisher_id ?? 0);
+                if ($publisherId === $senderId) {
+                    return __('messages.nc_sender_publisher');
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
+
+        $name = $this->safePersonName($meta['sender_name'] ?? null);
+        if ($name !== '') {
+            return $name;
+        }
+
+        return $audience === InAppNotification::AUDIENCE_ADVERTISER
+            ? __('messages.nc_sender_publisher')
+            : ($audience === InAppNotification::AUDIENCE_PUBLISHER
+                ? __('messages.nc_sender_advertiser')
+                : __('messages.nc_sender_support'));
+    }
+
+    protected function safePersonName(mixed $value): string
+    {
+        if (! is_string($value)) {
+            return '';
+        }
+        $name = trim($value);
+        if ($name === '' || str_contains($name, '@')) {
+            return '';
+        }
+        $first = preg_split('/\s+/', $name)[0] ?? '';
+
+        return is_string($first) ? $first : '';
+    }
+
+    protected function isMessageType(string $type, string $category): bool
+    {
+        return $category === InAppNotificationService::CATEGORY_MESSAGES
+            || in_array($type, [
+                InAppNotificationService::TYPE_MESSAGE,
+                InAppNotificationService::TYPE_CHAT_REPLY,
+            ], true);
+    }
+
+    protected function orderIsRejected(?Order $order, string $type): bool
+    {
+        if ($type === InAppNotificationService::TYPE_ORDER_REJECTED) {
+            return true;
+        }
+        if (! $order) {
+            return false;
+        }
+
+        return in_array((string) $order->status, ['cancelled'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    protected function resolveSiteName(array $meta, ?Site $site, ?OrderItem $item): string
+    {
+        foreach ([
+            $meta['site_name'] ?? null,
+            $item?->site_name,
+            $site?->site_name,
+            $meta['site_domain'] ?? null,
+            $site?->domain,
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return '';
+    }
+
+    protected function orderRef(mixed $orderNumber): ?string
+    {
+        $number = trim((string) $orderNumber);
+        if ($number === '') {
+            return null;
+        }
+        $number = ltrim($number, '#');
+
+        return '#'.$number;
+    }
+
+    protected function siteInitial(string $siteName, ?string $domain): string
+    {
+        $source = $siteName !== '' ? $siteName : (string) $domain;
+        $source = preg_replace('#^https?://#', '', $source) ?? $source;
+        $source = ltrim($source, '#@.');
+        $char = mb_substr($source, 0, 1);
+        if (! is_string($char) || $char === '') {
+            return 'S';
+        }
+
+        return mb_strtoupper($char);
+    }
+
     /**
      * @param  array<string, mixed>  $meta
      */
@@ -487,8 +809,32 @@ class InAppNotificationPresenter
             return null;
         }
 
-        // Public favicon proxy — no auth, fine for third-party domains.
-        return 'https://www.google.com/s2/favicons?domain='.rawurlencode($domain).'&sz=32';
+        return $this->thumbUrl($domain, $site);
+    }
+
+    protected function thumbUrl(?string $domain, ?Site $site): ?string
+    {
+        try {
+            if ($site) {
+                $thumb = $site->screenshot_thumb_url;
+                if (is_string($thumb) && $thumb !== '') {
+                    return $thumb;
+                }
+                $logo = $site->logo_url;
+                if (is_string($logo) && $logo !== '') {
+                    return $logo;
+                }
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        if (! $domain) {
+            return null;
+        }
+
+        // 128px source so a 40px tile stays crisp.
+        return 'https://www.google.com/s2/favicons?sz=128&domain='.rawurlencode($domain);
     }
 
     /**
@@ -516,15 +862,13 @@ class InAppNotificationPresenter
      */
     protected function groupKey(array $item): ?string
     {
-        if (! empty($item['order_pack_id']) && ($item['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS) {
-            return 'pack:'.(int) $item['order_pack_id'];
+        if (empty($item['is_lifecycle'])) {
+            return null;
         }
-        if (! empty($item['order_id']) && ($item['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS) {
+        if (! empty($item['order_id'])) {
             return 'order:'.(int) $item['order_id'];
         }
-        // Also group order-category rows that only have related_id
-        if (($item['category'] ?? '') === InAppNotificationService::CATEGORY_ORDERS
-            && ! empty($item['related_id'])
+        if (! empty($item['related_id'])
             && is_string($item['related_type'] ?? null)
             && str_ends_with((string) $item['related_type'], 'Order')) {
             return 'order:'.(int) $item['related_id'];
