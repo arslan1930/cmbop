@@ -538,13 +538,21 @@ a.nc-item:focus {
   overflow: hidden;
   background: var(--nc-bg-soft, #eef3f4);
   color: var(--nc-primary-strong, #1a585e);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  box-sizing: border-box;
 }
 
 .nc-favicon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  max-width: 30px;
+  max-height: 30px;
+  border-radius: 4px;
+  object-fit: contain;
+  object-position: center;
   display: block;
 }
 

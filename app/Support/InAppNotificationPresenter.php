@@ -104,9 +104,11 @@ class InAppNotificationPresenter
         $base['site_domain'] = $domain;
         $base['site_name'] = $siteName;
         $base['site_initial'] = $this->siteInitial($siteName, $domain);
-        $thumb = $this->thumbUrl($domain, $site);
+        $faviconChain = $this->faviconChain($domain, $site);
+        $thumb = $faviconChain[0] ?? null;
         $base['thumb_url'] = $thumb;
         $base['favicon_url'] = $thumb;
+        $base['favicon_chain'] = $faviconChain;
         $base['order_id'] = $this->orderId($notification, $order, $meta);
         $base['order_number'] = $meta['order_number'] ?? $order?->order_number;
         $base['order_ref'] = $this->orderRef($base['order_number'] ?? null);
@@ -189,7 +191,95 @@ class InAppNotificationPresenter
             return $bTs <=> $aTs;
         });
 
-        return $cards;
+        return $this->collapseLifecycleCards($cards);
+    }
+
+    /**
+     * Last-pass collapse so two Approved cards for the same order never ship
+     * even when related_id / audience / archive flags disagreed upstream.
+     *
+     * @param  list<array<string, mixed>>  $cards
+     * @return list<array<string, mixed>>
+     */
+    protected function collapseLifecycleCards(array $cards): array
+    {
+        $out = [];
+        $index = [];
+
+        foreach ($cards as $card) {
+            if (empty($card['is_lifecycle'])) {
+                $out[] = $card;
+
+                continue;
+            }
+
+            $keys = $this->lifecycleDedupeKeys($card);
+            $hit = null;
+            foreach ($keys as $key) {
+                if (isset($index[$key])) {
+                    $hit = $index[$key];
+                    break;
+                }
+            }
+
+            if ($hit === null) {
+                $slot = count($out);
+                $out[] = $card;
+                foreach ($keys as $key) {
+                    $index[$key] = $slot;
+                }
+
+                continue;
+            }
+
+            if ($this->cardIsNewer($card, $out[$hit])) {
+                $out[$hit] = $card;
+            }
+            foreach ($keys as $key) {
+                $index[$key] = $hit;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $card
+     * @return list<string>
+     */
+    protected function lifecycleDedupeKeys(array $card): array
+    {
+        $keys = [];
+        if (! empty($card['order_id'])) {
+            $keys[] = 'id:'.(int) $card['order_id'];
+        }
+        $number = trim((string) ($card['order_number'] ?? ''));
+        if ($number !== '') {
+            $keys[] = 'num:'.strtolower(ltrim($number, '#'));
+        }
+        $ref = trim((string) ($card['order_ref'] ?? ''));
+        if ($ref !== '') {
+            $keys[] = 'ref:'.strtolower($ref);
+        }
+
+        return $keys !== [] ? $keys : ['solo:'.($card['id'] ?? uniqid('n', true))];
+    }
+
+    /**
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, mixed>  $current
+     */
+    protected function cardIsNewer(array $candidate, array $current): bool
+    {
+        $aId = (int) ($candidate['id'] ?? 0);
+        $bId = (int) ($current['id'] ?? 0);
+        if ($aId !== $bId) {
+            return $aId > $bId;
+        }
+        $aTs = strtotime((string) ($candidate['created_at'] ?? '')) ?: 0;
+        $bTs = strtotime((string) ($current['created_at'] ?? '')) ?: 0;
+
+        return $aTs >= $bTs;
     }
 
     public function isActionNeeded(string $type, ?string $actionLabel = null, ?string $priority = null): bool
@@ -265,6 +355,8 @@ class InAppNotificationPresenter
                 ?? ($latest['auto_approve_label'] ?? null),
             'favicon_url' => collect($events)->first(fn ($e) => ! empty($e['favicon_url']))['favicon_url']
                 ?? ($latest['favicon_url'] ?? null),
+            'favicon_chain' => collect($events)->first(fn ($e) => ! empty($e['favicon_chain']))['favicon_chain']
+                ?? ($latest['favicon_chain'] ?? []),
         ]);
     }
 
@@ -349,15 +441,8 @@ class InAppNotificationPresenter
     protected function loadOrders(Collection $models): array
     {
         $orderIds = $models
-            ->filter(function (InAppNotification $n) {
-                $type = (string) $n->related_type;
-                if ($type === Order::class || $type === 'App\\Models\\Order' || str_ends_with($type, '\\Order')) {
-                    return (int) $n->related_id > 0;
-                }
-
-                return false;
-            })
-            ->map(fn (InAppNotification $n) => (int) $n->related_id)
+            ->map(fn (InAppNotification $n) => InAppNotificationService::canonicalOrderId($n))
+            ->filter()
             ->unique()
             ->values()
             ->all();
@@ -379,8 +464,8 @@ class InAppNotificationPresenter
         $liveActionIds = [];
         $byUserAudience = [];
         foreach ($models as $notification) {
-            $oid = (int) $notification->related_id;
-            if ($oid < 1 || ! $orders->has($oid)) {
+            $oid = InAppNotificationService::canonicalOrderId($notification);
+            if (! $oid || ! $orders->has($oid)) {
                 continue;
             }
             $uid = (int) $notification->user_id;
@@ -407,12 +492,8 @@ class InAppNotificationPresenter
      */
     protected function resolveOrder(InAppNotification $notification, ?Collection $ordersById): ?Order
     {
-        $type = (string) $notification->related_type;
-        $id = (int) $notification->related_id;
-        if ($id <= 0) {
-            return null;
-        }
-        if (! ($type === Order::class || $type === 'App\\Models\\Order' || str_ends_with($type, '\\Order'))) {
+        $id = InAppNotificationService::canonicalOrderId($notification);
+        if (! $id) {
             return null;
         }
 
@@ -421,12 +502,8 @@ class InAppNotificationPresenter
 
     protected function fetchRelatedOrder(InAppNotification $notification): ?Order
     {
-        $type = (string) $notification->related_type;
-        $id = (int) $notification->related_id;
-        if ($id <= 0) {
-            return null;
-        }
-        if (! ($type === Order::class || $type === 'App\\Models\\Order' || str_ends_with($type, '\\Order'))) {
+        $id = InAppNotificationService::canonicalOrderId($notification);
+        if (! $id) {
             return null;
         }
 
@@ -792,49 +869,61 @@ class InAppNotificationPresenter
         return $value !== '' ? $value : null;
     }
 
-    protected function faviconUrl(?string $domain, ?Site $site): ?string
+    /**
+     * Notification tiles use the site favicon, never the homepage screenshot.
+     *
+     * @return list<string>
+     */
+    protected function faviconChain(?string $domain, ?Site $site): array
     {
-        try {
-            if ($site && method_exists($site, 'getLogoUrlAttribute')) {
-                $logo = $site->logo_url;
-                if (is_string($logo) && $logo !== '') {
-                    return $logo;
-                }
-            }
-        } catch (\Throwable) {
-            // ignore
+        $urls = [];
+        $stored = $this->storedFaviconUrl($site);
+        if (is_string($stored) && $stored !== '') {
+            $urls[] = $stored;
+        }
+        $google = $this->googleFaviconUrl($domain);
+        if (is_string($google) && $google !== '') {
+            $urls[] = $google;
         }
 
+        return array_values(array_unique($urls));
+    }
+
+    protected function storedFaviconUrl(?Site $site): ?string
+    {
+        if (! $site) {
+            return null;
+        }
+        $path = $site->getAttribute('favicon_path');
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+        try {
+            $url = Site::publicDiskUrl($path);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    protected function googleFaviconUrl(?string $domain): ?string
+    {
         if (! $domain) {
             return null;
         }
 
-        return $this->thumbUrl($domain, $site);
+        return 'https://www.google.com/s2/favicons?sz=128&domain='.rawurlencode($domain);
+    }
+
+    protected function faviconUrl(?string $domain, ?Site $site): ?string
+    {
+        return $this->faviconChain($domain, $site)[0] ?? null;
     }
 
     protected function thumbUrl(?string $domain, ?Site $site): ?string
     {
-        try {
-            if ($site) {
-                $thumb = $site->screenshot_thumb_url;
-                if (is_string($thumb) && $thumb !== '') {
-                    return $thumb;
-                }
-                $logo = $site->logo_url;
-                if (is_string($logo) && $logo !== '') {
-                    return $logo;
-                }
-            }
-        } catch (\Throwable) {
-            // ignore
-        }
-
-        if (! $domain) {
-            return null;
-        }
-
-        // 128px source so a 40px tile stays crisp.
-        return 'https://www.google.com/s2/favicons?sz=128&domain='.rawurlencode($domain);
+        return $this->faviconUrl($domain, $site);
     }
 
     /**
@@ -845,16 +934,8 @@ class InAppNotificationPresenter
         if ($order) {
             return (int) $order->id;
         }
-        if (! empty($meta['order_id'])) {
-            return (int) $meta['order_id'];
-        }
-        $type = (string) $notification->related_type;
-        if ((int) $notification->related_id > 0
-            && ($type === Order::class || $type === 'App\\Models\\Order' || str_ends_with($type, '\\Order'))) {
-            return (int) $notification->related_id;
-        }
 
-        return null;
+        return InAppNotificationService::canonicalOrderId($notification, $meta);
     }
 
     /**
@@ -867,6 +948,10 @@ class InAppNotificationPresenter
         }
         if (! empty($item['order_id'])) {
             return 'order:'.(int) $item['order_id'];
+        }
+        $number = trim((string) ($item['order_number'] ?? ''));
+        if ($number !== '') {
+            return 'ordernum:'.strtolower(ltrim($number, '#'));
         }
         if (! empty($item['related_id'])
             && is_string($item['related_type'] ?? null)

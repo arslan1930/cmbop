@@ -116,6 +116,15 @@ class InAppNotificationService
             $relatedType = $options['related_type'] ?? ($related instanceof Model ? get_class($related) : null);
             $relatedId = $options['related_id'] ?? ($related instanceof Model ? $related->getKey() : null);
             $category = $options['category'] ?? $this->categoryForType($type);
+            $meta = is_array($options['meta'] ?? null) ? $options['meta'] : [];
+            if (empty($meta['order_id'])) {
+                if ($related instanceof Order) {
+                    $meta['order_id'] = (int) $related->getKey();
+                } elseif ($related instanceof OrderItem && (int) $related->order_id > 0) {
+                    $meta['order_id'] = (int) $related->order_id;
+                }
+            }
+            $options['meta'] = $meta !== [] ? $meta : ($options['meta'] ?? null);
 
             // Bell category mute (defaults on when preferences table is missing).
             if (! InAppNotificationPreference::allows($userId, $category)) {
@@ -136,7 +145,7 @@ class InAppNotificationService
                 'related_id' => $relatedId,
                 'action_label' => $options['action_label'] ?? 'View details',
                 'action_url' => $options['action_url'] ?? null,
-                'meta' => $options['meta'] ?? null,
+                'meta' => $options['meta'] ?? ($meta !== [] ? $meta : null),
             ]);
 
             $this->supersedeOlderLifecycleNotifications($created);
@@ -2762,12 +2771,18 @@ class InAppNotificationService
         $this->reconcileUserOrderNotifications($userId, $audience);
         $this->reconcileLifecycleNotifications($userId, $audience);
 
-        return InAppNotification::forUser($userId)
-            ->forAudience($audience)
-            ->unread()
-            ->notArchivedClock()
-            ->notSuperseded()
-            ->count();
+        try {
+            $notes = InAppNotification::forUser($userId)
+                ->forAudience($audience)
+                ->unread()
+                ->notArchivedClock()
+                ->notSuperseded()
+                ->get();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        return $this->dedupeLifecycleCollection($notes)->count();
     }
 
     /**
@@ -2998,7 +3013,12 @@ class InAppNotificationService
             });
         }
 
-        return $query->paginate($perPage);
+        $paginator = $query->paginate($perPage);
+        $paginator->setCollection(
+            $this->dedupeLifecycleCollection($paginator->getCollection())
+        );
+
+        return $paginator;
     }
 
     public function markAllRead(int $userId, ?string $audience = null): int
@@ -3059,7 +3079,63 @@ class InAppNotificationService
     }
 
     /**
-     * Hide older order-status rows for the same user + order + audience.
+     * Best-effort order pk for a bell row, including legacy rows that stored
+     * the id only in meta or pointed related_id at an OrderItem.
+     *
+     * @param  array<string, mixed>|null  $meta
+     */
+    public static function canonicalOrderId(InAppNotification $note, ?array $meta = null): ?int
+    {
+        $meta = $meta ?? (is_array($note->meta) ? $note->meta : []);
+        if (! empty($meta['order_id']) && (int) $meta['order_id'] > 0) {
+            return (int) $meta['order_id'];
+        }
+
+        $type = (string) $note->related_type;
+        $rid = (int) $note->related_id;
+        if ($rid > 0) {
+            if ($type === Order::class || $type === 'App\\Models\\Order' || str_ends_with($type, '\\Order')) {
+                return $rid;
+            }
+            if (str_ends_with($type, 'OrderItem')) {
+                try {
+                    $oid = (int) OrderItem::query()->whereKey($rid)->value('order_id');
+                    if ($oid > 0) {
+                        return $oid;
+                    }
+                } catch (\Throwable) {
+                    // ignore
+                }
+            }
+            if ($type === '' || $type === '0') {
+                try {
+                    if (Order::query()->whereKey($rid)->exists()) {
+                        return $rid;
+                    }
+                } catch (\Throwable) {
+                    // ignore
+                }
+            }
+        }
+
+        $number = $meta['order_number'] ?? null;
+        if (is_string($number) && trim($number) !== '') {
+            try {
+                $oid = (int) Order::query()->where('order_number', trim($number))->value('id');
+                if ($oid > 0) {
+                    return $oid;
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Hide older order-status rows for the same user + order.
+     * Audience is ignored so advertiser + all rows collapse together.
      * Rows stay in the table (meta.superseded_at) so history is recoverable.
      */
     public function supersedeOlderLifecycleNotifications(InAppNotification $keep): int
@@ -3068,28 +3144,16 @@ class InAppNotificationService
             return 0;
         }
 
-        $orderId = (int) $keep->related_id;
-        if ($orderId < 1 || (int) $keep->user_id < 1) {
+        $orderId = static::canonicalOrderId($keep);
+        if (! $orderId || (int) $keep->user_id < 1) {
             return 0;
         }
 
         try {
-            $older = InAppNotification::query()
+            $candidates = InAppNotification::query()
                 ->where('user_id', $keep->user_id)
-                ->where('audience', $keep->audience ?: InAppNotification::AUDIENCE_ALL)
                 ->where('id', '!=', $keep->id)
-                ->where('related_id', $orderId)
                 ->whereIn('type', self::LIFECYCLE_TYPES)
-                ->where(function ($type) {
-                    $type->where('related_type', Order::class)
-                        ->orWhere('related_type', 'App\\Models\\Order');
-                })
-                ->where(function ($q) {
-                    $q->whereNull('status')
-                        ->orWhere('status', '!=', InAppNotification::STATUS_ARCHIVED);
-                })
-                ->notArchivedClock()
-                ->notSuperseded()
                 ->get();
         } catch (\Throwable $e) {
             Log::warning('Failed to load lifecycle notifications to supersede', [
@@ -3101,8 +3165,11 @@ class InAppNotificationService
         }
 
         $count = 0;
-        foreach ($older as $row) {
+        foreach ($candidates as $row) {
             if (! static::isLifecycleNotification((string) $row->type, (string) $row->category)) {
+                continue;
+            }
+            if (static::canonicalOrderId($row) !== $orderId) {
                 continue;
             }
             if ($this->markSuperseded($row, $keep)) {
@@ -3115,6 +3182,7 @@ class InAppNotificationService
 
     /**
      * Collapse leftover duplicates that were created before supersede existed.
+     * Includes archived lifecycle rows so the inbox cannot resurrect them.
      */
     public function reconcileLifecycleNotifications(int $userId, ?string $audience = null): int
     {
@@ -3127,12 +3195,6 @@ class InAppNotificationService
             $notes = InAppNotification::forUser($userId)
                 ->forAudience($audience)
                 ->whereIn('type', self::LIFECYCLE_TYPES)
-                ->where(function ($q) {
-                    $q->whereNull('status')
-                        ->orWhere('status', '!=', InAppNotification::STATUS_ARCHIVED);
-                })
-                ->notArchivedClock()
-                ->notSuperseded()
                 ->orderByDesc('id')
                 ->get();
         } catch (\Throwable $e) {
@@ -3144,28 +3206,82 @@ class InAppNotificationService
             return 0;
         }
 
-        $keepByKey = [];
+        $keepByOrder = [];
         $count = 0;
         foreach ($notes as $note) {
             if (! static::isLifecycleNotification((string) $note->type, (string) $note->category)) {
                 continue;
             }
-            $oid = (int) $note->related_id;
-            if ($oid < 1) {
+            if ($this->metaIsSuperseded($note)) {
                 continue;
             }
-            $key = ((string) ($note->audience ?: InAppNotification::AUDIENCE_ALL)).':'.$oid;
-            if (! isset($keepByKey[$key])) {
-                $keepByKey[$key] = $note;
+            $oid = static::canonicalOrderId($note);
+            if (! $oid) {
+                continue;
+            }
+            if (! isset($keepByOrder[$oid])) {
+                $keepByOrder[$oid] = $note;
 
                 continue;
             }
-            if ($this->markSuperseded($note, $keepByKey[$key])) {
+            if ($this->markSuperseded($note, $keepByOrder[$oid])) {
                 $count++;
             }
         }
 
         return $count;
+    }
+
+    protected function metaIsSuperseded(InAppNotification $row): bool
+    {
+        $meta = is_array($row->meta) ? $row->meta : [];
+
+        return ! empty($meta['superseded_at']);
+    }
+
+    /**
+     * Drop JSON-missed superseded rows and keep one lifecycle bell per order.
+     * Marks extras superseded (no deletes) so the next load is already clean.
+     *
+     * @param  Collection<int, InAppNotification>  $notes
+     * @return Collection<int, InAppNotification>
+     */
+    protected function dedupeLifecycleCollection(Collection $notes): Collection
+    {
+        $visible = $notes->filter(fn (InAppNotification $n) => ! $this->metaIsSuperseded($n))->values();
+        $keepByOrder = [];
+        $kept = collect();
+
+        foreach ($visible as $note) {
+            if (! static::isLifecycleNotification((string) $note->type, (string) $note->category)) {
+                $kept->push($note);
+
+                continue;
+            }
+            $oid = static::canonicalOrderId($note);
+            if (! $oid) {
+                $kept->push($note);
+
+                continue;
+            }
+            if (! isset($keepByOrder[$oid])) {
+                $keepByOrder[$oid] = $note;
+                $kept->push($note);
+
+                continue;
+            }
+            $current = $keepByOrder[$oid];
+            if ((int) $note->id > (int) $current->id) {
+                $this->markSuperseded($current, $note);
+                $keepByOrder[$oid] = $note;
+                $kept = $kept->reject(fn (InAppNotification $n) => (int) $n->id === (int) $current->id)->values();
+                $kept->push($note);
+            } else {
+                $this->markSuperseded($note, $current);
+            }
+        }
+
+        return $kept->values();
     }
 
     protected function markSuperseded(InAppNotification $row, InAppNotification $keep): bool

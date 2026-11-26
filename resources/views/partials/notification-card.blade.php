@@ -17,6 +17,10 @@
     $showTools = $showTools ?? false;
     $icon = $item['icon'] ?? 'bell';
     $thumb = $item['thumb_url'] ?? ($item['favicon_url'] ?? null);
+    $faviconChain = array_values(array_filter(
+        is_array($item['favicon_chain'] ?? null) ? $item['favicon_chain'] : [],
+        fn ($url) => is_string($url) && $url !== ''
+    ));
     $siteInitial = $item['site_initial'] ?? '';
     $titlePrimary = $item['title_primary'] ?? ($item['title'] ?? '');
     $orderRef = $item['order_ref'] ?? null;
@@ -53,7 +57,7 @@
 
     <div class="nc-icon nc-thumb" aria-hidden="true">
         @if($thumb)
-            <img src="{{ $thumb }}" alt="" class="nc-favicon" width="40" height="40" loading="lazy" decoding="async" data-nc-favicon>
+            <img src="{{ $thumb }}" alt="" class="nc-favicon" width="40" height="40" loading="lazy" decoding="async" data-nc-favicon data-nc-favicon-chain="{{ e(json_encode($faviconChain, JSON_UNESCAPED_SLASHES)) }}">
             <span class="nc-thumb-fallback" hidden>{{ $siteInitial !== '' ? $siteInitial : 'S' }}</span>
         @elseif($siteInitial !== '')
             <span class="nc-thumb-fallback">{{ $siteInitial }}</span>
