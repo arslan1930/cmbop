@@ -136,6 +136,15 @@
     this.pollTimer = null;
     this.searchTimer = null;
     this.unread = 0;
+    this.i18n = {
+      allCaughtUp: root.getAttribute('data-i18n-all-caught-up') || 'All caught up',
+      noUnread: root.getAttribute('data-i18n-no-unread') || 'No unread notifications',
+      unreadOne: root.getAttribute('data-i18n-unread-one') || '1 unread',
+      unreadMany: root.getAttribute('data-i18n-unread-many') || ':count unread',
+      liveUrl: root.getAttribute('data-i18n-live-url') || 'Live URL',
+      actionNeeded: root.getAttribute('data-i18n-action-needed') || 'Action needed',
+      updates: root.getAttribute('data-i18n-updates') || ':count updates'
+    };
 
     this.btn = root.querySelector('[data-nc-bell]');
     this.panel = root.querySelector('[data-nc-panel]');
@@ -431,9 +440,17 @@
   NotificationCenter.prototype.syncUnreadLabel = function () {
     const el = (this.panel || this.root).querySelector('[data-nc-unread-label]');
     if (!el) return;
-    el.textContent = this.unread > 0
-      ? (this.unread === 1 ? '1 unread' : (this.unread + ' unread'))
-      : 'All caught up';
+    const i18n = this.i18n || {};
+    if (this.unread > 0) {
+      el.textContent = this.unread === 1
+        ? (i18n.unreadOne || '1 unread')
+        : String(i18n.unreadMany || ':count unread').replace(':count', String(this.unread));
+      return;
+    }
+    const hasItems = Array.isArray(this.items) && this.items.length > 0;
+    el.textContent = hasItems
+      ? (i18n.noUnread || 'No unread notifications')
+      : (i18n.allCaughtUp || 'All caught up');
   };
 
   NotificationCenter.prototype.showLoadError = function (detail) {
@@ -806,10 +823,14 @@
       : String(n.id || '');
     const primaryId = n.id || (n.event_ids && n.event_ids[0]) || '';
 
+    const thumb = n.thumb_url || n.favicon_url || '';
+    const initial = escapeHtml(n.site_initial || 'S');
     let iconHtml;
-    if (n.favicon_url) {
-      iconHtml = '<img src="' + escapeHtml(n.favicon_url) + '" alt="" class="nc-favicon" width="18" height="18" loading="lazy" data-nc-favicon>' +
-        '<span class="nc-icon-fallback" hidden>' + lucideIcon(iconName) + '</span>';
+    if (thumb) {
+      iconHtml = '<img src="' + escapeHtml(thumb) + '" alt="" class="nc-favicon" width="40" height="40" loading="lazy" data-nc-favicon>' +
+        '<span class="nc-thumb-fallback" hidden>' + initial + '</span>';
+    } else if (n.site_initial) {
+      iconHtml = '<span class="nc-thumb-fallback">' + initial + '</span>';
     } else {
       iconHtml = lucideIcon(iconName);
     }
@@ -831,9 +852,11 @@
     }
 
     let eventsHtml = '';
-    if (n.is_group && n.events && n.events.length > 1) {
+    if (!n.is_lifecycle && n.is_group && n.events && n.events.length > 1) {
+      const updatesLabel = String((this.i18n && this.i18n.updates) || ':count updates')
+        .replace(':count', String(n.events.length));
       eventsHtml = '<details class="nc-group-details">' +
-        '<summary>' + n.events.length + ' updates</summary>' +
+        '<summary>' + escapeHtml(updatesLabel) + '</summary>' +
         '<ul class="nc-group-events">' +
         n.events.map(function (ev) {
           return '<li><strong>' + escapeHtml(ev.title || '') + '</strong> ' +
@@ -847,9 +870,10 @@
       actions.push('<a class="nc-item-action" href="' + escapeHtml(n.action_url) + '">' +
         escapeHtml(n.action_label || 'View details') + ' →</a>');
     }
-    if (n.live_url) {
+    if (n.live_url && !n.is_message) {
       actions.push('<a class="nc-open-link" href="' + escapeHtml(n.live_url) +
-        '" target="_blank" rel="noopener noreferrer">Open link</a>');
+        '" target="_blank" rel="noopener noreferrer">' +
+        escapeHtml((this.i18n && this.i18n.liveUrl) || 'Live URL') + '</a>');
     }
 
     const kebabRead = n.is_unread
@@ -861,11 +885,14 @@
     return (
       '<div class="nc-item' + unreadClass + actionClass + groupClass + '" data-nc-id="' + primaryId +
         '" data-nc-ids="' + escapeHtml(ids) + '" data-nc-url="' + escapeHtml(n.action_url || '') + '">' +
-        '<div class="nc-icon" aria-hidden="true">' + iconHtml + '</div>' +
+        '<div class="nc-icon nc-thumb" aria-hidden="true">' + iconHtml + '</div>' +
         '<div class="nc-item-main">' +
           '<div class="nc-item-title-row">' +
-            '<p class="nc-item-title">' + escapeHtml(n.title) + '</p>' +
-            (n.action_needed ? '<span class="nc-action-tag">Action needed</span>' : '') +
+            '<p class="nc-item-title">' + escapeHtml(n.title_primary || n.title || '') +
+              (n.order_ref ? '<span class="nc-order-ref">' + escapeHtml(n.order_ref) + '</span>' : '') +
+            '</p>' +
+            (n.action_needed ? '<span class="nc-action-tag">' +
+              escapeHtml((this.i18n && this.i18n.actionNeeded) || 'Action needed') + '</span>' : '') +
           '</div>' +
           (n.message ? '<p class="nc-item-msg">' + escapeHtml(n.message) + '</p>' : '') +
           (n.auto_approve_label ? '<p class="nc-auto-approve">' + escapeHtml(n.auto_approve_label) + '</p>' : '') +

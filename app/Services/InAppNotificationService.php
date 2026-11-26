@@ -79,6 +79,22 @@ class InAppNotificationService
     public const CATEGORY_ACCOUNT = 'account';
 
     /**
+     * Order-status bells that collapse to one live-status row per order.
+     * Payment-received only counts when it is the advertiser "placed" ping
+     * (category=orders), not a publisher wallet credit.
+     *
+     * @var list<string>
+     */
+    public const LIFECYCLE_TYPES = [
+        self::TYPE_ORDER_CREATED,
+        self::TYPE_ORDER_ACCEPTED,
+        self::TYPE_ORDER_REJECTED,
+        self::TYPE_GUEST_POST_PUBLISHED,
+        self::TYPE_ORDER_COMPLETED,
+        self::TYPE_PAYMENT_RECEIVED,
+    ];
+
+    /**
      * Create a persistent in-app notification for a user.
      */
     public function notify(
@@ -123,6 +139,7 @@ class InAppNotificationService
                 'meta' => $options['meta'] ?? null,
             ]);
 
+            $this->supersedeOlderLifecycleNotifications($created);
             $this->syncRelatedOrderAfterNotify($related, $relatedType, $relatedId);
 
             return $created;
@@ -1036,6 +1053,7 @@ class InAppNotificationService
                 'action_url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false),
                 'meta' => [
                     'order_number' => $order->order_number,
+                    'site_name' => $item->site_name,
                     'homepage_days' => $item->hasHomepagePlacement() ? (int) $item->homepage_days : null,
                     'social_channels' => $item->enabledSocialChannels(),
                 ],
@@ -1715,6 +1733,9 @@ class InAppNotificationService
             ]
         );
 
+        $item = $order->relationLoaded('items') ? $order->items->first() : $order->items()->first();
+        $siteName = $item?->site_name ?: ($item?->site?->site_name ?: null);
+
         $this->notify(
             $receiver->id,
             self::TYPE_MESSAGE,
@@ -1733,10 +1754,58 @@ class InAppNotificationService
                 'meta' => [
                     'order_number' => $order->order_number,
                     'sender_id' => $sender->id,
-                    'sender_name' => $sender->name,
+                    'sender_name' => $this->safeChatSenderName($sender),
+                    'sender_role' => $this->chatSenderRole($order, $sender),
+                    'site_name' => $siteName,
                 ],
             ]
         );
+    }
+
+    protected function chatSenderRole(Order $order, User $sender): string
+    {
+        try {
+            if ($sender->hasRole('admin') || $sender->hasRole('marketing')
+                || $sender->isAdmin() || $sender->isMarketing()) {
+                return 'support';
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+        if ((int) $sender->id === (int) $order->user_id) {
+            return 'advertiser';
+        }
+        try {
+            $publisherId = (int) ($order->items->first()?->site?->publisher_id ?? 0);
+            if ($publisherId > 0 && $publisherId === (int) $sender->id) {
+                return 'publisher';
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+        try {
+            if ($sender->hasRole('publisher')) {
+                return 'publisher';
+            }
+            if ($sender->hasRole('advertiser')) {
+                return 'advertiser';
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        return 'support';
+    }
+
+    protected function safeChatSenderName(User $sender): ?string
+    {
+        $name = trim((string) $sender->name);
+        if ($name === '' || str_contains($name, '@')) {
+            return null;
+        }
+        $first = preg_split('/\s+/', $name)[0] ?? '';
+
+        return is_string($first) && $first !== '' ? $first : null;
     }
 
     /**
@@ -2691,11 +2760,13 @@ class InAppNotificationService
         }
 
         $this->reconcileUserOrderNotifications($userId, $audience);
+        $this->reconcileLifecycleNotifications($userId, $audience);
 
         return InAppNotification::forUser($userId)
             ->forAudience($audience)
             ->unread()
             ->notArchivedClock()
+            ->notSuperseded()
             ->count();
     }
 
@@ -2885,9 +2956,11 @@ class InAppNotificationService
         }
 
         $this->reconcileUserOrderNotifications($userId, $filters['audience'] ?? null);
+        $this->reconcileLifecycleNotifications($userId, $filters['audience'] ?? null);
 
         $query = InAppNotification::forUser($userId)
             ->forAudience($filters['audience'] ?? null)
+            ->notSuperseded()
             ->latest();
 
         $status = $filters['status'] ?? 'active';
@@ -2966,6 +3039,160 @@ class InAppNotificationService
             Log::warning('Order notification sync after notify failed', [
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    public static function isLifecycleNotification(string $type, ?string $category = null): bool
+    {
+        if (in_array($type, [
+            self::TYPE_ORDER_CREATED,
+            self::TYPE_ORDER_ACCEPTED,
+            self::TYPE_ORDER_REJECTED,
+            self::TYPE_GUEST_POST_PUBLISHED,
+            self::TYPE_ORDER_COMPLETED,
+        ], true)) {
+            return true;
+        }
+
+        return $type === self::TYPE_PAYMENT_RECEIVED
+            && $category === self::CATEGORY_ORDERS;
+    }
+
+    /**
+     * Hide older order-status rows for the same user + order + audience.
+     * Rows stay in the table (meta.superseded_at) so history is recoverable.
+     */
+    public function supersedeOlderLifecycleNotifications(InAppNotification $keep): int
+    {
+        if (! static::isLifecycleNotification((string) $keep->type, (string) $keep->category)) {
+            return 0;
+        }
+
+        $orderId = (int) $keep->related_id;
+        if ($orderId < 1 || (int) $keep->user_id < 1) {
+            return 0;
+        }
+
+        try {
+            $older = InAppNotification::query()
+                ->where('user_id', $keep->user_id)
+                ->where('audience', $keep->audience ?: InAppNotification::AUDIENCE_ALL)
+                ->where('id', '!=', $keep->id)
+                ->where('related_id', $orderId)
+                ->whereIn('type', self::LIFECYCLE_TYPES)
+                ->where(function ($type) {
+                    $type->where('related_type', Order::class)
+                        ->orWhere('related_type', 'App\\Models\\Order');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('status')
+                        ->orWhere('status', '!=', InAppNotification::STATUS_ARCHIVED);
+                })
+                ->notArchivedClock()
+                ->notSuperseded()
+                ->get();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to load lifecycle notifications to supersede', [
+                'notification_id' => $keep->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($older as $row) {
+            if (! static::isLifecycleNotification((string) $row->type, (string) $row->category)) {
+                continue;
+            }
+            if ($this->markSuperseded($row, $keep)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Collapse leftover duplicates that were created before supersede existed.
+     */
+    public function reconcileLifecycleNotifications(int $userId, ?string $audience = null): int
+    {
+        InAppNotification::ensureTable();
+        if (! InAppNotification::tableAvailable() || $userId < 1) {
+            return 0;
+        }
+
+        try {
+            $notes = InAppNotification::forUser($userId)
+                ->forAudience($audience)
+                ->whereIn('type', self::LIFECYCLE_TYPES)
+                ->where(function ($q) {
+                    $q->whereNull('status')
+                        ->orWhere('status', '!=', InAppNotification::STATUS_ARCHIVED);
+                })
+                ->notArchivedClock()
+                ->notSuperseded()
+                ->orderByDesc('id')
+                ->get();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to reconcile lifecycle notifications', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
+
+        $keepByKey = [];
+        $count = 0;
+        foreach ($notes as $note) {
+            if (! static::isLifecycleNotification((string) $note->type, (string) $note->category)) {
+                continue;
+            }
+            $oid = (int) $note->related_id;
+            if ($oid < 1) {
+                continue;
+            }
+            $key = ((string) ($note->audience ?: InAppNotification::AUDIENCE_ALL)).':'.$oid;
+            if (! isset($keepByKey[$key])) {
+                $keepByKey[$key] = $note;
+
+                continue;
+            }
+            if ($this->markSuperseded($note, $keepByKey[$key])) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    protected function markSuperseded(InAppNotification $row, InAppNotification $keep): bool
+    {
+        try {
+            $meta = is_array($row->meta) ? $row->meta : [];
+            if (! empty($meta['superseded_at'])) {
+                return false;
+            }
+            $meta['superseded_at'] = now()->toIso8601String();
+            $meta['superseded_by'] = (int) $keep->id;
+            $row->forceFill([
+                'meta' => $meta,
+                'status' => $row->status === InAppNotification::STATUS_ARCHIVED
+                    ? InAppNotification::STATUS_ARCHIVED
+                    : InAppNotification::STATUS_READ,
+                'read_at' => $row->read_at ?? now(),
+            ])->save();
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Failed to mark notification superseded', [
+                'notification_id' => $row->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
         }
     }
 

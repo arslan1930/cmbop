@@ -418,6 +418,9 @@ class OrderNotificationSyncTest extends TestCase
         );
         $this->assertSame(4, (int) ($presented['lifecycle_stepper']['current'] ?? 0));
         $this->assertFalse((bool) $presented['action_needed']);
+        $this->assertStringContainsString('Approved', (string) $presented['title']);
+        $this->assertSame('#'.$order->order_number, $presented['order_ref'] ?? null);
+        $this->assertSame('https://sync-site.example/done', $presented['live_url'] ?? null);
     }
 
     public function test_sync_command_is_idempotent(): void

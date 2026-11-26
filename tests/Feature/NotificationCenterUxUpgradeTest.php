@@ -204,11 +204,16 @@ class NotificationCenterUxUpgradeTest extends TestCase
         $this->assertNotEmpty($orderCard['auto_approve_label']);
         $this->assertStringContainsString('Auto-approves', $orderCard['auto_approve_label']);
         $this->assertNotEmpty($orderCard['favicon_url']);
-        $this->assertNotEmpty($orderCard['timeline']);
+        $this->assertStringContainsString('sz=128', (string) $orderCard['favicon_url']);
+        $this->assertStringContainsString('Published', (string) $orderCard['title']);
+        $this->assertSame('#695973', $orderCard['order_ref'] ?? null);
         $this->assertIsArray($orderCard['lifecycle_stepper'] ?? null);
         $this->assertNotEmpty($orderCard['lifecycle_stepper']['steps'] ?? []);
         $labels = collect($orderCard['lifecycle_stepper']['steps'])->pluck('label')->all();
         $this->assertSame(['Placed', 'Accepted', 'Published', 'Approved'], $labels);
+        $this->assertSame(3, (int) ($orderCard['lifecycle_stepper']['current'] ?? 0));
+        $lifecycleCards = collect($cards)->where('order_id', $order->id)->where('is_lifecycle', true);
+        $this->assertCount(1, $lifecycleCards);
     }
 
     public function test_publisher_new_order_is_action_needed(): void
@@ -320,7 +325,10 @@ class NotificationCenterUxUpgradeTest extends TestCase
             ->get(route('notifications.all'))
             ->assertOk()
             ->assertSee('Action needed', false)
-            ->assertSee('Open link', false)
+            ->assertSee('Live URL', false)
+            ->assertDontSee('Open link', false)
+            ->assertSee('example.com — Published', false)
+            ->assertSee('#555', false)
             ->assertSee('https://news.example/post', false)
             ->assertSee('rel="noopener noreferrer"', false)
             ->assertSee('nc-kebab', false)
@@ -401,11 +409,14 @@ class NotificationCenterUxUpgradeTest extends TestCase
         $js = (string) file_get_contents(public_path('assets/js/notification-center.js'));
         $this->assertStringContainsString('nc-kebab', $js);
         $this->assertStringContainsString('capAt: 9', $js);
-        $this->assertStringContainsString('Open link', $js);
+        $this->assertStringContainsString('Live URL', $js);
         $this->assertStringContainsString('Action needed', $js);
         $this->assertStringContainsString('syncFilterOverflow', $js);
         $this->assertStringContainsString('noopener', $js);
         $this->assertStringContainsString('renderLifecycleStepper', $js);
+        $this->assertStringContainsString('nc-order-ref', $js);
+        $this->assertStringContainsString('nc-thumb-fallback', $js);
+        $this->assertStringContainsString('No unread notifications', $js);
         $this->assertStringContainsString('animateNewArrival', $js);
         $this->assertStringContainsString('is-leaving', $js);
         $this->assertStringContainsString('is-shaking', $js);

@@ -11,7 +11,14 @@
      data-archive-url="/notifications/__ID__/archive"
      data-destroy-url="/notifications/__ID__"
      data-all-url="{{ route('notifications.all', absolute: false) }}"
-     data-settings-url="{{ route('profile.notifications', absolute: false) }}">
+     data-settings-url="{{ route('profile.notifications', absolute: false) }}"
+     data-i18n-all-caught-up="{{ __('messages.nc_all_caught_up') }}"
+     data-i18n-no-unread="{{ __('messages.nc_no_unread') }}"
+     data-i18n-unread-one="{{ __('messages.nc_unread_one') }}"
+     data-i18n-unread-many="{{ __('messages.nc_unread_many', ['count' => ':count']) }}"
+     data-i18n-live-url="{{ __('messages.nc_live_url') }}"
+     data-i18n-action-needed="{{ __('messages.nc_action_needed') }}"
+     data-i18n-updates="{{ __('messages.nc_updates', ['count' => ':count']) }}">
 
     <button type="button"
             class="nc-bell-btn"
@@ -33,7 +40,7 @@
             <div class="nc-header-row">
                 <div class="nc-header-copy">
                     <p class="nc-title" id="ncTitle">Notifications</p>
-                    <p class="nc-subtitle" data-nc-unread-label>0 unread</p>
+                    <p class="nc-subtitle" data-nc-unread-label>{{ __('messages.nc_all_caught_up') }}</p>
                 </div>
                 <div class="nc-actions">
                     <button type="button" class="nc-link-btn" data-nc-mark-all>Mark all read</button>
