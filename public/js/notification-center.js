@@ -110,6 +110,68 @@
     return clockTime(iso);
   }
 
+  function parseFaviconChain(img) {
+    let chain = [];
+    try {
+      chain = JSON.parse(img.getAttribute('data-nc-favicon-chain') || '[]');
+    } catch (e) {
+      chain = [];
+    }
+    if (!Array.isArray(chain)) chain = [];
+    return chain.filter(function (url) { return typeof url === 'string' && url !== ''; });
+  }
+
+  function isGenericGlobeIcon(img) {
+    const src = String(img.currentSrc || img.src || '');
+    if (src.indexOf('google.com/s2/favicons') === -1 && src.indexOf('gstatic.com/favicon') === -1) {
+      return false;
+    }
+    const w = img.naturalWidth || 0;
+    const h = img.naturalHeight || 0;
+    return w > 0 && h > 0 && w <= 16 && h <= 16;
+  }
+
+  function bindFaviconImg(img) {
+    if (!img || img.getAttribute('data-nc-favicon-bound')) return;
+    img.setAttribute('data-nc-favicon-bound', '1');
+    const chain = parseFaviconChain(img);
+    let index = 0;
+    const current = img.getAttribute('src') || '';
+    if (current) {
+      const found = chain.indexOf(current);
+      if (found >= 0) index = found;
+    }
+
+    function showFallback() {
+      img.style.display = 'none';
+      const fb = img.nextElementSibling;
+      if (fb) fb.hidden = false;
+    }
+
+    function tryNext() {
+      index += 1;
+      if (index < chain.length && chain[index] && chain[index] !== img.getAttribute('src')) {
+        img.src = chain[index];
+        return;
+      }
+      showFallback();
+    }
+
+    img.addEventListener('error', function () {
+      tryNext();
+    });
+    img.addEventListener('load', function () {
+      if (isGenericGlobeIcon(img)) {
+        tryNext();
+      }
+    });
+    if (img.complete && img.naturalWidth) {
+      if (isGenericGlobeIcon(img)) tryNext();
+    } else if (img.complete && !img.naturalWidth) {
+      tryNext();
+    }
+  }
+
   function groupKey(iso) {
     if (!iso) return 'Earlier';
     const date = new Date(iso);
@@ -745,13 +807,7 @@
   NotificationCenter.prototype.bindListEvents = function () {
     const self = this;
 
-    this.list.querySelectorAll('[data-nc-favicon]').forEach(function (img) {
-      img.addEventListener('error', function () {
-        img.style.display = 'none';
-        const fb = img.nextElementSibling;
-        if (fb) fb.hidden = false;
-      });
-    });
+    this.list.querySelectorAll('[data-nc-favicon]').forEach(bindFaviconImg);
 
     this.list.querySelectorAll('.nc-item').forEach(function (el) {
       el.addEventListener('click', function (e) {
@@ -824,10 +880,11 @@
     const primaryId = n.id || (n.event_ids && n.event_ids[0]) || '';
 
     const thumb = n.thumb_url || n.favicon_url || '';
+    const chain = Array.isArray(n.favicon_chain) ? n.favicon_chain : [];
     const initial = escapeHtml(n.site_initial || 'S');
     let iconHtml;
     if (thumb) {
-      iconHtml = '<img src="' + escapeHtml(thumb) + '" alt="" class="nc-favicon" width="40" height="40" loading="lazy" data-nc-favicon>' +
+      iconHtml = '<img src="' + escapeHtml(thumb) + '" alt="" class="nc-favicon" width="40" height="40" loading="lazy" data-nc-favicon data-nc-favicon-chain="' + escapeHtml(JSON.stringify(chain)) + '">' +
         '<span class="nc-thumb-fallback" hidden>' + initial + '</span>';
     } else if (n.site_initial) {
       iconHtml = '<span class="nc-thumb-fallback">' + initial + '</span>';

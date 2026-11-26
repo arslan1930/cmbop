@@ -191,11 +191,40 @@
     });
 
     document.querySelectorAll('[data-nc-favicon]').forEach(function (img) {
-        img.addEventListener('error', function () {
+        if (img.getAttribute('data-nc-favicon-bound')) return;
+        img.setAttribute('data-nc-favicon-bound', '1');
+        var chain = [];
+        try { chain = JSON.parse(img.getAttribute('data-nc-favicon-chain') || '[]'); } catch (err) { chain = []; }
+        if (!Array.isArray(chain)) chain = [];
+        chain = chain.filter(function (url) { return typeof url === 'string' && url !== ''; });
+        var index = Math.max(0, chain.indexOf(img.getAttribute('src') || ''));
+        function showFallback() {
             img.style.display = 'none';
             var fb = img.nextElementSibling;
             if (fb) fb.hidden = false;
+        }
+        function isGenericGlobe() {
+            var src = String(img.currentSrc || img.src || '');
+            if (src.indexOf('google.com/s2/favicons') === -1 && src.indexOf('gstatic.com/favicon') === -1) return false;
+            return img.naturalWidth > 0 && img.naturalWidth <= 16 && img.naturalHeight <= 16;
+        }
+        function tryNext() {
+            index += 1;
+            if (index < chain.length && chain[index]) {
+                img.src = chain[index];
+                return;
+            }
+            showFallback();
+        }
+        img.addEventListener('error', tryNext);
+        img.addEventListener('load', function () {
+            if (isGenericGlobe()) tryNext();
         });
+        if (img.complete && img.naturalWidth) {
+            if (isGenericGlobe()) tryNext();
+        } else if (img.complete && !img.naturalWidth) {
+            tryNext();
+        }
     });
 })();
 </script>

@@ -297,21 +297,147 @@ class NotificationDropdownPanelTest extends TestCase
         $this->assertNull($card['live_url'] ?? null);
     }
 
-    public function test_thumb_uses_crisp_favicon_size_and_initial_fallback(): void
+    public function test_thumb_uses_favicon_not_homepage_screenshot(): void
     {
         $advertiser = $this->userWithRole('advertiser');
         $publisher = $this->userWithRole('publisher');
         $site = $this->siteFor($publisher);
+        $site->forceFill([
+            'screenshot_thumb_path' => 'sites/screenshots/home-preview.webp',
+            'screenshot_path' => 'sites/screenshots/home.webp',
+            'site_image' => 'sites/uploads/hero.png',
+        ])->save();
         $order = $this->paidOrder($advertiser, $site, ['status' => 'processing'], [
             'accepted_at' => now(),
         ]);
-        $this->service()->notifyOrderAccepted($order, $order->items->first(), $site);
+        $this->service()->notifyOrderAccepted($order, $order->items->first(), $site->fresh());
 
         $card = collect($this->cardsFor($advertiser))->firstWhere('order_id', $order->id);
         $this->assertNotNull($card);
         $this->assertSame('I', $card['site_initial'] ?? null);
-        $this->assertStringContainsString('sz=128', (string) $card['thumb_url']);
-        $this->assertStringContainsString('width="40"', file_get_contents(public_path('assets/js/notification-center.js')));
+        $thumb = (string) ($card['thumb_url'] ?? '');
+        $this->assertStringContainsString('sz=128', $thumb);
+        $this->assertStringContainsString('google.com/s2/favicons', $thumb);
+        $this->assertStringNotContainsString('home-preview', $thumb);
+        $this->assertStringNotContainsString('screenshots', $thumb);
+        $this->assertStringNotContainsString('hero.png', $thumb);
+        $this->assertContains($thumb, $card['favicon_chain'] ?? []);
+        $this->assertStringContainsString('object-fit: contain', file_get_contents(public_path('assets/css/notification-center.css')));
+        $this->assertStringContainsString('data-nc-favicon-chain', file_get_contents(public_path('js/notification-center.js')));
+    }
+
+    public function test_thumb_prefers_stored_favicon_over_google(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+        $site->forceFill([
+            'screenshot_thumb_path' => 'sites/screenshots/home-preview.webp',
+            'favicon_path' => 'site-favicons/inka.png',
+        ])->save();
+        $order = $this->paidOrder($advertiser, $site, ['status' => 'processing'], [
+            'accepted_at' => now(),
+        ]);
+        $this->service()->notifyOrderAccepted($order, $order->items->first(), $site->fresh());
+
+        $card = collect($this->cardsFor($advertiser))->firstWhere('order_id', $order->id);
+        $this->assertNotNull($card);
+        $this->assertStringContainsString('site-favicons/inka.png', (string) $card['thumb_url']);
+        $this->assertStringNotContainsString('home-preview', (string) $card['thumb_url']);
+        $chain = $card['favicon_chain'] ?? [];
+        $this->assertNotEmpty($chain);
+        $this->assertTrue(collect($chain)->contains(fn ($url) => str_contains((string) $url, 'sz=128')));
+    }
+
+    public function test_legacy_duplicate_order_status_rows_collapse_to_one_card(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+        $order = $this->paidOrder($advertiser, $site, [
+            'status' => 'completed',
+            'completed_at' => now(),
+        ], [
+            'accepted_at' => now(),
+            'live_url' => 'https://inka-magazin.example/live',
+            'live_url_submitted_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        // Bypass notify() so supersede-on-create does not run — matches Hostinger
+        // rows created before #1353, plus an archived published leftover.
+        InAppNotification::create([
+            'user_id' => $advertiser->id,
+            'audience' => InAppNotification::AUDIENCE_ALL,
+            'type' => InAppNotificationService::TYPE_GUEST_POST_PUBLISHED,
+            'category' => InAppNotificationService::CATEGORY_ORDERS,
+            'title' => 'Order #645240 published',
+            'message' => 'Ready for review.',
+            'status' => InAppNotification::STATUS_ARCHIVED,
+            'related_type' => Order::class,
+            'related_id' => $order->id,
+            'action_label' => 'View order',
+            'action_url' => '/advertiser/orders',
+            'meta' => null,
+            'archived_at' => now(),
+            'created_at' => now()->subMinute(),
+        ]);
+        InAppNotification::create([
+            'user_id' => $advertiser->id,
+            'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+            'type' => InAppNotificationService::TYPE_ORDER_COMPLETED,
+            'category' => InAppNotificationService::CATEGORY_ORDERS,
+            'title' => 'Order #645240 completed',
+            'message' => 'Done.',
+            'status' => InAppNotification::STATUS_UNREAD,
+            'related_type' => Order::class,
+            'related_id' => $order->id,
+            'action_label' => 'View order',
+            'action_url' => '/advertiser/orders',
+            'meta' => ['order_number' => '645240', 'site_name' => 'Inka Magazin'],
+        ]);
+        InAppNotification::create([
+            'user_id' => $advertiser->id,
+            'audience' => InAppNotification::AUDIENCE_ADVERTISER,
+            'type' => InAppNotificationService::TYPE_ORDER_COMPLETED,
+            'category' => InAppNotificationService::CATEGORY_ORDERS,
+            'title' => 'Order #645240 completed',
+            'message' => 'Done again.',
+            'status' => InAppNotification::STATUS_UNREAD,
+            'related_type' => Order::class,
+            'related_id' => $order->id,
+            'action_label' => 'View order',
+            'action_url' => '/advertiser/orders',
+            'meta' => ['order_number' => '645240'],
+        ]);
+
+        $cards = $this->cardsFor($advertiser);
+        $lifecycle = collect($cards)->where('is_lifecycle', true)->where('order_id', $order->id)->values();
+        $this->assertCount(1, $lifecycle, 'Legacy duplicates must collapse to one order-status card');
+        $this->assertStringContainsString('Approved', (string) $lifecycle[0]['title']);
+        $this->assertSame('#645240', $lifecycle[0]['order_ref'] ?? null);
+
+        $page = $this->actingAs($advertiser)->get(route('notifications.all'))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($page, 'Inka Magazin — Approved'));
+
+        $this->assertSame(
+            1,
+            InAppNotification::query()
+                ->where('user_id', $advertiser->id)
+                ->whereIn('type', InAppNotificationService::LIFECYCLE_TYPES)
+                ->get()
+                ->filter(fn (InAppNotification $n) => empty(data_get($n->meta, 'superseded_at')))
+                ->filter(fn (InAppNotification $n) => InAppNotificationService::isLifecycleNotification(
+                    (string) $n->type,
+                    (string) $n->category
+                ))
+                ->count()
+        );
+        $this->assertSame(
+            3,
+            InAppNotification::query()->where('user_id', $advertiser->id)->count(),
+            'Supersede must not delete rows'
+        );
     }
 
     public function test_dropdown_partial_exposes_header_copy_keys(): void
