@@ -337,6 +337,13 @@ return Application::configure(basePath: dirname(__DIR__))
             $enrichCommand->weeklyOn(2, '4:15'); // Tuesday
         }
 
+        $mutex(
+            $schedule->command('sites:sync-verified-traffic')
+                ->weeklyOn(2, '5:00')
+                ->sendOutputTo(storage_path('logs/verified-traffic.log')),
+            180
+        );
+
         // Partner catalog: ECB CZK/PLN rates, then nightly feed re-fetch
         $mutex($schedule->command('partners:refresh-fx')->dailyAt('03:40'));
         $mutex($schedule->command('partners:sync-feeds')->dailyAt('04:00'), 180);

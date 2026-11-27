@@ -110,6 +110,7 @@ use App\Http\Controllers\Publisher\SiteClaimController;
 use App\Http\Controllers\Publisher\SiteController;
 use App\Http\Controllers\Publisher\SitePromotionController;
 use App\Http\Controllers\Publisher\SiteVerificationController;
+use App\Http\Controllers\Publisher\VerifiedTrafficController;
 use App\Http\Controllers\Publisher\WithdrawalController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SitemapController;
@@ -1417,6 +1418,8 @@ $registerStaffOpsRoutes = function () {
         ->name('sites.edit');
     Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
         ->name('sites.update');
+    Route::post('/sites/{id}/traffic-override', [AdminSiteController::class, 'trafficOverride'])
+        ->name('sites.traffic-override');
     Route::post('/sites/{id}/upload-image', [AdminSiteController::class, 'uploadImage'])
         ->name('sites.upload-image');
     // Admin: any site. Marketing: pending / not-live (!verified && !active) only.
@@ -2502,6 +2505,20 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::post('/websites/bulk-review/submit', [PublisherBulkSiteRequestController::class, 'submitForReview'])->name('bulk-sites.review.submit');
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
         Route::get('/sites/{id}/edit-data', [SiteController::class, 'editData'])->name('sites.edit-data');
+        Route::get('/sites/google/callback', [VerifiedTrafficController::class, 'callback'])
+            ->middleware('throttle:10,60')
+            ->name('sites.google.callback');
+        Route::get('/sites/{site}/google/redirect', [VerifiedTrafficController::class, 'redirect'])
+            ->middleware('throttle:10,60')
+            ->name('sites.google.redirect');
+        Route::get('/sites/{site}/google/properties', [VerifiedTrafficController::class, 'properties'])
+            ->name('sites.google.properties');
+        Route::post('/sites/{site}/google/properties', [VerifiedTrafficController::class, 'saveProperties'])
+            ->middleware('throttle:20,60')
+            ->name('sites.google.properties.save');
+        Route::post('/sites/{site}/google/disconnect', [VerifiedTrafficController::class, 'disconnect'])
+            ->middleware('throttle:10,60')
+            ->name('sites.google.disconnect');
         Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');
         Route::post('/sites/{id}/confirm-gbp-listing', [SiteController::class, 'confirmGbpListing'])
             ->middleware('throttle:30,1')

@@ -16,6 +16,7 @@ use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
 use App\Support\StaffArchiveReason;
+use App\Support\VerifiedTraffic;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -60,6 +61,12 @@ class Site extends Model
         'da',
         'dr',
         'traffic',
+        'traffic_manual',
+        'traffic_ga4',
+        'traffic_gsc_clicks',
+        'traffic_admin_override',
+        'traffic_source',
+        'traffic_verified_at',
         'metrics_provider',
         'metrics_fetched_at',
         'screenshot_path',
@@ -161,6 +168,11 @@ class Site extends Model
         'da' => 'integer',
         'dr' => 'integer',
         'traffic' => 'integer',
+        'traffic_manual' => 'integer',
+        'traffic_ga4' => 'integer',
+        'traffic_gsc_clicks' => 'integer',
+        'traffic_admin_override' => 'integer',
+        'traffic_verified_at' => 'datetime',
         'price' => 'decimal:2',
         'listing_price' => 'decimal:2',
         'listing_gbp_prompt_dismissed_at' => 'datetime',
@@ -1089,6 +1101,16 @@ class Site extends Model
     public function publisher()
     {
         return $this->belongsTo(User::class, 'publisher_id');
+    }
+
+    public function trafficConnection()
+    {
+        return $this->hasOne(SiteTrafficConnection::class);
+    }
+
+    public function showsVerifiedTrafficBadge(): bool
+    {
+        return VerifiedTraffic::showsBadge($this);
     }
 
     public function agencySiteImport()

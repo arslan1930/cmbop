@@ -76,6 +76,7 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\SiteStatusNotification;
 use App\Mail\SpendBudgetAlertMail;
 use App\Mail\TrustpilotReviewRequest;
+use App\Mail\VerifiedTrafficSyncFailed;
 use App\Mail\WebsiteSuggestionReviewed;
 use App\Mail\WeeklyActivitySummary;
 use App\Mail\WeeklyNewSitesDigestMail;
@@ -729,6 +730,13 @@ class EmailCatalog
                 'mailable' => SpendBudgetAlertMail::class,
                 'status' => 'active',
             ],
+            'verified_traffic_sync_failed' => [
+                'name' => 'Verified Traffic Sync Failed',
+                'description' => 'Throttled publisher notice when GA4 / Search Console refresh fails or Google access is revoked. Listing keeps the last number without the Verified badge.',
+                'category' => 'Publishers',
+                'mailable' => VerifiedTrafficSyncFailed::class,
+                'status' => 'active',
+            ],
         ];
     }
 
@@ -898,6 +906,7 @@ class EmailCatalog
             'we did not add' => 'bulk_request_items_rejected',
             'spend budget' => 'spend_budget_alert',
             'low wallet balance alert' => 'spend_budget_alert',
+            'verified traffic needs attention' => 'verified_traffic_sync_failed',
             'new site submitted for review' => 'new_site',
             'site updated - requires review' => 'new_site',
             'your site has been' => 'site_status',
@@ -1147,6 +1156,7 @@ class EmailCatalog
                 'spendable' => 80.0,
                 'low_balance_threshold' => 50.0,
             ]),
+            'verified_traffic_sync_failed' => new VerifiedTrafficSyncFailed($site, $user, true),
             'content_evaluation_result' => new ContentEvaluationResult(self::sampleContentSubmission(), [
                 'approved' => true,
                 'notify_status' => 'approved',

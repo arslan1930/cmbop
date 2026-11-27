@@ -506,6 +506,7 @@ class AdminEmailCenterTest extends TestCase
             'bulk_request_cancelled',
             'bulk_request_items_rejected',
             'spend_budget_alert',
+            'verified_traffic_sync_failed',
         ] as $key) {
             $this->assertArrayHasKey($key, EmailCatalog::templates());
             $this->assertNotSame('', EmailCatalog::templates()[$key]['description'] ?? '');
@@ -581,6 +582,7 @@ class AdminEmailCenterTest extends TestCase
             'Spend budget warning' => 'spend_budget_alert',
             'Monthly spend budget reached' => 'spend_budget_alert',
             'Low wallet balance alert' => 'spend_budget_alert',
+            'Verified traffic needs attention — Sample Site' => 'verified_traffic_sync_failed',
             'Verify your email (Test Preview)' => 'email_verification',
             'Password Reset (Test Preview)' => 'password_reset',
             'Your password was changed on SEOLinkBuildings' => 'password_changed',

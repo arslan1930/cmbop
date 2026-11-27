@@ -3,6 +3,7 @@
 @section('title', 'Edit site')
 
 @section('content')
+<link href="{{ asset('assets/css/verified-traffic.css') }}?v={{ @filemtime(public_path('assets/css/verified-traffic.css')) ?: '1' }}" rel="stylesheet">
 @php
     $isMarketingEditor = $isMarketingEditor ?? false;
     $marketingListingLocked = $marketingListingLocked ?? false;
@@ -251,6 +252,7 @@
                                    value="{{ old_text('traffic', $site->traffic) }}">
                             @error('traffic')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
+                        @include('admin.sites.partials.verified-traffic', ['site' => $site, 'formSuffix' => 'metrics'])
                         <div class="col-12">
                             @include('partials.site-description-editor', [
                                 'value' => old_text('description', $site->description),
@@ -431,6 +433,7 @@
                                    step="1" inputmode="numeric" placeholder="e.g. 1500000"
                                    value="{{ old_text('traffic', $site->traffic) }}">
                         </div>
+                        @include('admin.sites.partials.verified-traffic', ['site' => $site, 'formSuffix' => 'full'])
                         <div class="col-12">
                             @include('partials.site-description-editor', [
                                 'value' => old_text('description', $site->description),
