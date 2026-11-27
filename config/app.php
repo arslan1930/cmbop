@@ -161,4 +161,10 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    | Draft HTML mockups for Verified traffic (/preview/verified-traffic).
+    | Local and PHPUnit always allow them. Production 404s unless this is true.
+    */
+    'verified_traffic_preview' => (bool) env('VERIFIED_TRAFFIC_PREVIEW', false),
+
 ];

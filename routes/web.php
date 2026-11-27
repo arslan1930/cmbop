@@ -95,6 +95,7 @@ use App\Http\Controllers\MarketingPageController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\Preview\VerifiedTrafficPreviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PromotionTrackController;
 use App\Http\Controllers\PublicMediaController;
@@ -2599,3 +2600,13 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::get('/reports/orders/{orderItemId}/details', [PublisherReportsController::class, 'getOrderDetails'])->name('reports.order.details');
         Route::get('/reports/withdrawals', [PublisherReportsController::class, 'getWithdrawals'])->name('reports.withdrawals');
     });
+
+// Draft-only Verified traffic HTML mockups. Controller 404s in production
+// unless VERIFIED_TRAFFIC_PREVIEW=true. Demo data, no OAuth, no writes.
+Route::prefix('preview/verified-traffic')->name('preview.verified-traffic.')->group(function () {
+    Route::get('/', [VerifiedTrafficPreviewController::class, 'index'])->name('index');
+    Route::get('/publisher', [VerifiedTrafficPreviewController::class, 'publisher'])->name('publisher');
+    Route::get('/catalog', [VerifiedTrafficPreviewController::class, 'catalog'])->name('catalog');
+    Route::get('/catalog/detail', [VerifiedTrafficPreviewController::class, 'catalogDetail'])->name('catalog-detail');
+    Route::get('/admin', [VerifiedTrafficPreviewController::class, 'admin'])->name('admin');
+});
