@@ -58,7 +58,11 @@
                 </div>
                 <div class="vt-actions">
                     <a class="btn btn-outline-secondary" href="{{ route('publisher.sites.google.properties', [$site, 'change' => 1]) }}">{{ __('messages.verified_traffic_picker_title') }}</a>
-                    <form method="POST" action="{{ route('publisher.sites.google.disconnect', $site) }}" onsubmit="return confirm(@json(__('messages.verified_traffic_disconnect_confirm')));">
+                    <form method="POST" action="{{ route('publisher.sites.google.disconnect', $site) }}"
+                          data-slb-confirm="{{ __('messages.verified_traffic_disconnect_confirm') }}"
+                          data-slb-confirm-title="{{ __('messages.verified_traffic_disconnect') }}"
+                          data-slb-confirm-text="{{ __('messages.verified_traffic_disconnect') }}"
+                          data-slb-confirm-danger="1">
                         @csrf
                         <button type="submit" class="btn btn-outline-danger">{{ __('messages.verified_traffic_disconnect') }}</button>
                     </form>

@@ -8,6 +8,7 @@ use App\Models\SiteTrafficConnection;
 use App\Services\VerifiedTraffic\GoogleTrafficClient;
 use App\Services\VerifiedTraffic\GoogleTrafficException;
 use App\Services\VerifiedTraffic\VerifiedTrafficService;
+use App\Support\UserFacingError;
 use App\Support\VerifiedTraffic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,7 +53,7 @@ class VerifiedTrafficController extends Controller
         } catch (GoogleTrafficException $e) {
             return redirect()
                 ->route('publisher.websites')
-                ->with('error', $e->getMessage());
+                ->with('error', UserFacingError::message($e, __('messages.verified_traffic_oauth_failed')));
         }
 
         return redirect()
@@ -86,7 +87,7 @@ class VerifiedTrafficController extends Controller
                     $ga4 = $listed['ga4'];
                     $gsc = $listed['gsc'];
                 } catch (GoogleTrafficException $e) {
-                    $listError = $e->getMessage();
+                    $listError = UserFacingError::message($e, __('messages.verified_traffic_oauth_failed'));
                 }
             }
         }
@@ -121,7 +122,7 @@ class VerifiedTrafficController extends Controller
         } catch (GoogleTrafficException $e) {
             return redirect()
                 ->route('publisher.sites.google.properties', $site)
-                ->with('error', $e->getMessage());
+                ->with('error', UserFacingError::message($e, __('messages.verified_traffic_oauth_failed')));
         }
 
         return redirect()
@@ -163,7 +164,7 @@ class VerifiedTrafficController extends Controller
      */
     private function demoProperties(Site $site): array
     {
-        $host = \App\Support\VerifiedTraffic::registrableHost((string) ($site->domain ?: $site->site_url));
+        $host = VerifiedTraffic::registrableHost((string) ($site->domain ?: $site->site_url));
 
         return [
             'ga4' => [
