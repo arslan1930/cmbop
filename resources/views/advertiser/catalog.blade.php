@@ -7,6 +7,7 @@
     <link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/catalog.css') }}?v={{ @filemtime(public_path('assets/css/catalog.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/catalog-product-tabs.css') }}?v={{ @filemtime(public_path('assets/css/catalog-product-tabs.css')) ?: '1' }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/verified-traffic.css') }}?v={{ @filemtime(public_path('assets/css/verified-traffic.css')) ?: '1' }}" rel="stylesheet">
     {{-- Critical catalog guards: if a stale CDN copy of catalog.css wins the
          race, Chrome still must not paint a stuck busy layer, teal NEW pills,
          or intrinsic-size metric logos. --}}

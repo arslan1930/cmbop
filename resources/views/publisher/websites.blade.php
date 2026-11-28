@@ -2,6 +2,10 @@
 
 @section('title', 'My Sites')
 
+@push('page-styles')
+    <link href="{{ asset('assets/css/verified-traffic.css') }}?v={{ @filemtime(public_path('assets/css/verified-traffic.css')) ?: '1' }}" rel="stylesheet">
+@endpush
+
 @section('content')
 <style>
     body {
@@ -1235,6 +1239,9 @@
                             <div class="col-md-3">
                                 <label class="form-label">Traffic <span class="req" aria-hidden="true">*</span></label>
                                 <input type="number" name="traffic" id="traffic" class="form-control" placeholder="Visitors/month" value="{{ old_text('traffic') }}" required>
+                                @if(\App\Support\VerifiedTraffic::connectAvailable())
+                                    <div class="help-text mt-1">{{ __('messages.verified_traffic_manual_help') }}</div>
+                                @endif
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Turnaround Time <span class="req" aria-hidden="true">*</span></label>

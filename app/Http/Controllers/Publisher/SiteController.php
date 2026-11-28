@@ -19,6 +19,7 @@ use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
 use App\Services\Marketplace\WritingFeeService;
+use App\Services\VerifiedTraffic\VerifiedTrafficService;
 use App\Support\FasterPublisherPayoutsBlogPost;
 use App\Support\HowToPriceYourSiteBlogPost;
 use App\Support\LinkInsertionProduct;
@@ -31,6 +32,7 @@ use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
+use App\Support\VerifiedTraffic;
 use App\Support\WhySitesGetRejectedBlogPost;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -335,6 +337,10 @@ class SiteController extends Controller
                     'da' => (int) $request->da,
                     'dr' => (int) $request->dr,
                     'traffic' => (int) $request->traffic,
+                    ...(Site::hasSitesColumn('traffic_manual') ? [
+                        'traffic_manual' => (int) $request->traffic,
+                        'traffic_source' => VerifiedTraffic::SOURCE_MANUAL,
+                    ] : []),
                     'metrics_manual' => true,
                     'metrics_provider' => 'manual',
                     'metrics_fetched_at' => now(),
@@ -877,7 +883,11 @@ class SiteController extends Controller
                 'example_url' => $site->example_url,
                 'da' => (int) $site->da,
                 'dr' => (int) $site->dr,
-                'traffic' => (int) $site->traffic,
+                'traffic' => (int) (
+                    VerifiedTraffic::schemaReady() && $site->traffic_manual !== null
+                        ? $site->traffic_manual
+                        : $site->traffic
+                ),
                 'country' => $site->country,
                 'countries' => $site->countries,
                 'language' => $site->language,
@@ -1051,11 +1061,16 @@ class SiteController extends Controller
                 $homepagePrices = $listingFields['homepage_placement_prices'];
                 $socialPromotion = $this->collectSocialPromotion($request);
 
+                if (VerifiedTraffic::schemaReady()) {
+                    app(VerifiedTrafficService::class)
+                        ->rememberPublisherTraffic($site, (int) $request->traffic);
+                }
+
                 $payload = [
                     'example_url' => $request->exampleUrl,
                     'da' => (int) $request->da,
                     'dr' => (int) $request->dr,
-                    'traffic' => (int) $request->traffic,
+                    'traffic' => (int) $site->traffic,
                     'metrics_manual' => true,
                     'metrics_provider' => 'manual',
                     'country' => $countryCodes[0],

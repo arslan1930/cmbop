@@ -72,6 +72,17 @@ return [
         'site_verification' => trim((string) env('GOOGLE_SITE_VERIFICATION', '')),
     ],
 
+    /*
+    | Publisher Verified traffic (GA4 / Search Console). Separate OAuth client
+    | from login. Leave empty to hide the Connect card.
+    */
+    'google_traffic' => [
+        'client_id' => trim((string) env('GOOGLE_TRAFFIC_CLIENT_ID', '')),
+        'client_secret' => trim((string) env('GOOGLE_TRAFFIC_CLIENT_SECRET', '')),
+        'redirect' => trim((string) (env('GOOGLE_TRAFFIC_REDIRECT_URI')
+            ?: rtrim((string) env('APP_URL', 'http://localhost'), '/').'/publisher/sites/google/callback')),
+    ],
+
     'trustpilot' => [
         // Public profile: what visitors read. Used for the footer trust link.
         'review_url' => env('TRUSTPILOT_REVIEW_URL', 'https://www.trustpilot.com/review/seolinkbuildings.com'),

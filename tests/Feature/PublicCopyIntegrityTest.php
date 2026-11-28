@@ -112,6 +112,16 @@ class PublicCopyIntegrityTest extends TestCase
         $this->assertStringNotContainsString('messages.privacy_section_staff_assisted', $html);
     }
 
+    public function test_privacy_covers_google_limited_use_for_verified_traffic(): void
+    {
+        $html = $this->get('/privacy-policy')->assertOk()->getContent();
+
+        $this->assertStringContainsString('Google API Services User Data Policy', $html);
+        $this->assertStringContainsString('Limited Use', $html);
+        $this->assertStringContainsString('analytics.readonly', $html);
+        $this->assertStringNotContainsString('messages.privacy_google_limited_use', $html);
+    }
+
     public function test_staff_assisted_legal_keys_exist_in_every_locale(): void
     {
         foreach ($this->locales() as $locale) {

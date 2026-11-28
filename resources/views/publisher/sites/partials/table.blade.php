@@ -1100,6 +1100,11 @@
                     <span>DA <strong>{{ $site->da }}</strong></span>
                     <span>DR <strong>{{ $site->dr }}</strong></span>
                     <span title="Traffic {{ number_format((int) $site->traffic) }}">Tr <strong>{{ $site->formattedTraffic() }}</strong></span>
+                    @if(\App\Support\VerifiedTraffic::showsBadge($site))
+                        @include('advertiser.partials.verified-traffic-badge', ['site' => $site])
+                    @elseif(\App\Support\VerifiedTraffic::connectAvailable())
+                        <a class="vt-row-link" href="{{ route('publisher.sites.google.properties', $site) }}">{{ __('messages.verified_traffic_connect_short') }}</a>
+                    @endif
                 </div>
             </td>
 

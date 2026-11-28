@@ -28,6 +28,7 @@
             <div class="col-md-6">
                 <a href="#info-collect" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_collect') }}</a>
                 <a href="#info-use" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_use') }}</a>
+                <a href="#google-limited-use" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.privacy_google_limited_use_nav') }}</a>
                 <a href="#info-share" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_info_share') }}</a>
                 <a href="#data-security" class="d-block py-1" style="color:#5bc4c7; text-decoration:none; font-size:0.9rem;">→ {{ __('messages.nav_data_security') }}</a>
             </div>
@@ -69,6 +70,7 @@
             <li>{{ __('messages.privacy_section1_list2_3') }}</li>
             <li>{{ __('messages.privacy_section1_list2_4') }}</li>
             <li>{{ __('messages.privacy_section1_list2_5') }}</li>
+            <li>{{ __('messages.privacy_section1_list2_6') }}</li>
         </ul>
 
         <h3 class="fw-bold mt-4 mb-3" style="color:#1a1a2e; font-size:1.15rem;">{{ __('messages.privacy_section1_sub3') }}</h3>
@@ -106,6 +108,10 @@
             </div>
             <p class="mb-0" style="color:#555; line-height:1.7;">{{ __('messages.privacy_section2_callout_text') }}</p>
         </div>
+
+        <h3 id="google-limited-use" class="fw-bold mt-4 mb-3" style="color:#1a1a2e; font-size:1.15rem;">{{ __('messages.privacy_google_limited_use_title') }}</h3>
+        <p style="color:#555; line-height:1.7;">{{ __('messages.privacy_google_limited_use_text') }}</p>
+        <p class="mb-0" style="color:#555; line-height:1.7;">{{ __('messages.privacy_google_limited_use_scopes') }}</p>
     </div>
 
 

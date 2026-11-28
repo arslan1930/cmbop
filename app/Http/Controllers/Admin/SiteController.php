@@ -31,6 +31,7 @@ use App\Services\SiteEnrichment\SiteEnrichmentService;
 use App\Services\SiteEnrichment\SiteMetricsAggregator;
 use App\Services\SitePromotionService;
 use App\Services\Staff\StaffAssignedListingService;
+use App\Services\VerifiedTraffic\VerifiedTrafficService;
 use App\Support\AdminSites;
 use App\Support\BulkDiscount;
 use App\Support\CatalogHealthQueue;
@@ -7948,5 +7949,19 @@ class SiteController extends Controller
         } catch (\Throwable $e) {
             Log::error('Failed to notify publisher after site '.$action.': '.$e->getMessage());
         }
+    }
+
+    public function trafficOverride(Request $request, $id)
+    {
+        $site = Site::query()->findOrFail($id);
+        $raw = $request->input('traffic_admin_override');
+        $override = ($raw === null || $raw === '') ? null : max(0, (int) $raw);
+        app(VerifiedTrafficService::class)->applyAdminOverride($site, $override);
+
+        return redirect()
+            ->back()
+            ->with('success', $override === null
+                ? 'Traffic override cleared.'
+                : 'Traffic override saved. The Verified traffic badge is off.');
     }
 }

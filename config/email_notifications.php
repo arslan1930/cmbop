@@ -74,6 +74,7 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Mail\SiteStatusNotification;
 use App\Mail\SpendBudgetAlertMail;
 use App\Mail\TrustpilotReviewRequest;
+use App\Mail\VerifiedTrafficSyncFailed;
 use App\Mail\WebsiteSuggestionReviewed;
 use App\Mail\WeeklyActivitySummary;
 use App\Mail\WeeklyNewSitesDigestMail;
@@ -797,6 +798,13 @@ return [
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
             'mailable' => SpendBudgetAlertMail::class,
+            'default_enabled' => true,
+        ],
+        'verified_traffic_sync_failed' => [
+            'name' => 'Verified Traffic Sync Failed',
+            'audience' => 'publisher',
+            'preference' => 'system_updates',
+            'mailable' => VerifiedTrafficSyncFailed::class,
             'default_enabled' => true,
         ],
     ],

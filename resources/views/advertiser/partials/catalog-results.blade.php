@@ -556,11 +556,14 @@
                 </td>
 
                 <td class="text-center catalog-stat-cell">
+                    <div class="vt-metric-stack">
                     @include('advertiser.partials.catalog-metric', [
                         'type' => 'traffic',
                         'value' => $site->traffic,
                         'inline' => false,
                     ])
+                    @include('advertiser.partials.verified-traffic-badge', ['site' => $site])
+                    </div>
                 </td>
 
                 <td class="text-center catalog-stat-cell">
@@ -721,6 +724,7 @@
                             </p>
                             @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'compactClass' => ''])
                             @include('advertiser.partials.catalog-publisher-reliability', ['site' => $site, 'variant' => 'details'])
+                            <div class="mt-2">@include('advertiser.partials.verified-traffic-badge', ['site' => $site])</div>
                             @unless($isLinkInsertionCatalog)
                             @include('advertiser.partials.catalog-writing-chip', ['site' => $site])
                             @endunless
@@ -1273,6 +1277,7 @@
                         Traffic
                     </span>
                     @include('advertiser.partials.catalog-metric', ['type' => 'traffic', 'value' => $site->traffic, 'inline' => false])
+                    <div class="mt-1">@include('advertiser.partials.verified-traffic-badge', ['site' => $site])</div>
                 </div>
                 <div>
                     <span class="text-muted catalog-mobile-metrics__label">
